@@ -1,0 +1,40 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ===== 运行时数据与生成产物 =====
+# data/ 下除合成样本外均为运行时产物（报告、情报缓存、评估语料、批量结果），
+# 体积大或可由脚本再生成，不入库；新增语料/评估文件会自动被忽略
+data/*
+!data/samples/
+
+# ===== 环境变量与密钥 =====
+.env
+.streamlit/secrets.toml
+
+# ===== IDE / 系统 =====
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== 日志 =====
+*.log
+
+# ===== 架构图检查截图与工具临时交付快照（保留 architecture.html 与 .architecture.json 源文件）=====
+架构图/*visual-check*
+架构图/.archify-delivery-*/
+
+# ===== 个人待办（不入库）=====
+代办清单*.md
+
+# ===== 测试集 =====
+tests/

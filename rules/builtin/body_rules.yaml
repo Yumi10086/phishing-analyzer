@@ -1,0 +1,340 @@
+# 正文/HTML/主题特征规则（作用域: mail）
+- id: html_password_field
+  name: 正文内嵌密码输入框
+  category: body
+  points: 8
+  reason: "邮件正文内嵌密码输入框（凭证收割页面）"
+  match:
+    field: raw_html
+    operator: regex_any
+    values: ['<input[^>]+type=["'']?password']
+
+- id: anchor_text_mismatch
+  name: 锚文本伪装跳转
+  category: body
+  kind: detector
+  detector: anchor_text_mismatch
+  points: 8
+  reason: "链接显示文本与实际跳转域名不一致: {value}"
+
+- id: body_urgency
+  name: 紧急恐吓措辞
+  category: body
+  points: 5
+  reason: "正文/主题包含紧急恐吓措辞（命中: {value}）"
+  match:
+    field: text
+    operator: contains_any
+    values: ["@dict:urgency_keywords"]
+
+# 排除高精度 credential_keywords 命中的情况：同一句话不应被两条规则重复计分
+# （credential_keywords 命中时由 body_credential_solicitation 计分）。
+- id: body_credentials
+  name: 凭证索取含链接
+  category: body
+  points: 7
+  reason: "正文包含凭证索取关键词且含链接（命中: {value}）"
+  match:
+    - field: body
+      operator: contains_any
+      values: ["@dict:url_keywords"]
+      exclude:
+        field: body
+        operator: contains_any
+        values: ["@dict:credential_keywords"]
+    - field: url_count
+      operator: gt
+      values: [0]
+      exclude:
+        field: body
+        operator: contains_any
+        values: ["@dict:credential_keywords"]
+
+# 与 body_credentials 的分工：后者匹配 url_keywords（含 account/update/confirm 等
+# 通用商务词，落在正文上精度较低），本规则改用高精度 credential_keywords，只认
+# "submit your details" / "verify your identity" 这类明确的索取表述。
+# 背景：spam-000005 正文 "IMPORTANT: Submit your details to claim reward:" 不含任何
+# url_keywords，而 body_credentials_no_link 又要求"无链接+附件"，导致该句在两条
+# 规则下都落空——补上"带链接的凭证索取"这一格。
+- id: body_credential_solicitation
+  name: 正文索取凭证/个人信息含链接
+  category: body
+  points: 7
+  reason: "正文索取凭证/个人信息并附链接（命中: {value}）"
+  match:
+    - field: body
+      operator: contains_any
+      values: ["@dict:credential_keywords"]
+    - field: url_count
+      operator: gt
+      values: [0]
+
+# ---- HTML 隐藏文字（hidden text salting）----
+# Cisco Talos：2024 下半年起该类手法激增，且隐藏内容在恶意邮件里出现的频率远高于正常邮件；
+# 用途是干扰品牌名提取、语种判定与关键词过滤，也被用于 HTML smuggling。
+# 正常邮件也会用 display:none 放"预览摘要"(preheader)，因此只对两类高置信情形计分：
+#   ① 品牌错位——隐藏文本含品牌而可见正文不含（正是品牌提取规避的特征）；
+#   ② 篇幅异常——隐藏文字远超 preheader 的正常长度。
+- id: hidden_html_brand_mismatch
+  name: 隐藏文字藏品牌名
+  category: body
+  points: 8
+  reason: "HTML 里用 CSS 隐藏了品牌名，收件人可见正文中却没有该品牌（品牌提取规避）"
+  match:
+    field: hidden_html_brand_mismatch
+    operator: equals_any
+    values: [true]
+
+- id: hidden_html_bulk
+  name: 大量隐藏文字
+  category: body
+  points: 5
+  reason: "HTML 里隐藏了 {value} 个字符的正文（远超正常预览摘要篇幅）"
+  match:
+    field: hidden_html_text_len
+    operator: gt
+    values: [200]
+
+- id: html_comment_split_base64
+  name: 注释切断 base64
+  category: body
+  points: 8
+  reason: "HTML 注释把 base64 串切断（HTML smuggling 特征）"
+  match:
+    field: html_comment_split_base64
+    operator: equals_any
+    values: [true]
+
+- id: body_otp
+  name: 验证码话术
+  category: body
+  points: 5
+  reason: "正文包含验证码话术（命中: {value}）"
+  match:
+    field: body
+    operator: contains_any
+    values: ["@dict:otp_keywords"]
+
+# 奖励/中奖诱饵：与"凭证索取"（body_credentials）互补的另一种钓鱼话术。
+# 奖品词表原先只作用于主题（subject_keywords），主题走"快递/账单"路线而正文
+# 走"领奖"路线的样本会两头都漏，故补齐正文侧。
+# 追加"正文含链接"条件：单纯祝贺/营销文案无链接时不触发，控制误报。
+- id: body_reward_lure
+  name: 奖励中奖诱饵含链接
+  category: body
+  points: 5
+  reason: "正文以奖励/中奖话术诱导点击（命中: {value}）"
+  match:
+    - field: body
+      operator: contains_any
+      values: ["@dict:reward_keywords"]
+    - field: url_count
+      operator: gt
+      values: [0]
+
+- id: subject_suspicious
+  name: 主题钓鱼高频词
+  category: body
+  points: 2
+  reason: "主题包含钓鱼高频关键词（命中: {value}）"
+  match:
+    field: subject
+    operator: contains_any
+    values: ["@dict:subject_keywords"]
+
+- id: subject_shouting
+  name: 主题全大写带编号
+  category: body
+  points: 3
+  reason: "主题全大写并带编号/符号（中奖/垃圾钓鱼常见格式）"
+  match:
+    - field: subject_upper_ratio
+      operator: gt
+      values: [0.8]
+    - field: subject_letter_count
+      operator: gt
+      values: [9]
+    - field: subject
+      operator: regex_any
+      values: ['[\d#$_]']
+
+- id: body_credentials_no_link
+  name: 凭证索取无链接附件承载
+  category: body
+  points: 3
+  reason: "正文索取凭证但无链接、以附件承载（凭证钓鱼常见变体）"
+  match:
+    - field: body
+      operator: contains_any
+      values: ["@dict:credential_keywords"]
+    - field: url_count
+      operator: equals_any
+      values: [0]
+    - field: attachment_count
+      operator: gt
+      values: [0]
+
+- id: image_heavy_body
+  name: 图像化正文
+  category: body
+  points: 4
+  reason: "正文文本极短且含 {image_count} 张图片（疑似图像化钓鱼）"
+  match:
+    - field: image_count
+      operator: gt
+      values: [0]
+    - field: body_text_length
+      operator: lt
+      values: [200]
+    - field: url_count
+      operator: gt
+      values: [0]
+
+- id: body_brand_spoof
+  name: 品牌冒充链接漂移
+  category: body
+  points: 8
+  reason: "正文冒充品牌（{value}）但链接指向其他域名"
+  match:
+    - field: text
+      operator: contains_any
+      values: ["@dict:brands"]
+    - field: brandless_domain_count
+      operator: gt
+      values: [0]
+
+- id: lure_attachment_pattern
+  name: 诱饵文档投递模式
+  category: body
+  points: 3
+  reason: "正文极短且无链接、仅以附件承载内容（诱饵文档投递模式）"
+  match:
+    - field: attachment_count
+      operator: gt
+      values: [0]
+    - field: url_count
+      operator: equals_any
+      values: [0]
+    - field: body_text_length
+      operator: lt
+      values: [400]
+    # 追加紧迫话术条件：正常"请查附件"类邮件无此特征，避免单靠附件误报
+    - field: body
+      operator: contains_any
+      values: ["@dict:urgency_keywords"]
+
+# ===== datacon2023 day1 语料补充（2026-09）=====
+# 背景：day1 611 封全为钓鱼/垃圾样本，基线召回 52.7%。漏判集中在四类中文话术：
+# 补贴诈骗、学术会议征稿推广、企业礼品营销、邮箱系统迁移钓鱼。
+# 分值整体压低（3-8 分）：这些词在正常商务邮件里并非绝迹，靠组合与叠加过阈值，
+# 不做单点定性；命中补贴/礼品话术的样本若同时有其他信号才会被拦截。
+
+# ---- 补贴诈骗：主体词 + 动作词双命中（subject 与 body 各一条，同分）----
+# "2023年个人劳动（补贴）通知，查看下图查收" / "第一季度劳动补贴领取(查看附件)"
+- id: subject_subsidy_lure
+  name: 主题补贴诱饵话术
+  category: body
+  points: 5
+  reason: "主题包含补贴类话术并要求领取/查收（命中: {value}）"
+  match:
+    - field: subject
+      operator: contains_any
+      values: ["@dict:subsidy_keywords"]
+    - field: subject
+      operator: contains_any
+      values: ["领取", "申领", "查收", "下发", "发放", "到账", "截止", "通知"]
+
+- id: body_subsidy_lure
+  name: 正文补贴诱饵话术
+  category: body
+  points: 5
+  reason: "正文包含补贴类话术并要求领取/查收（命中: {value}）"
+  match:
+    - field: body
+      operator: contains_any
+      values: ["@dict:subsidy_keywords"]
+    - field: body
+      operator: contains_any
+      values: ["领取", "申领", "查收", "下发", "发放", "到账", "截止"]
+
+# 混淆变体：day1 出现"补〉贴""部貼""财 政"（插全角标点/空格/近音字替换），
+# 普通字典无法命中；用正则容忍两字间 0-2 个噪声字符。不要求动作词同现——
+# 这类主题往往只有标题本身（如"《财 政》补〉贴"），且裸命中 5 分不足以单独定性。
+- id: subject_subsidy_lure_obfuscated
+  name: 主题补贴诱饵话术（混淆变体）
+  category: body
+  points: 5
+  reason: "主题包含插噪混淆的补贴类话术（命中: {value}）"
+  match:
+    field: subject
+    operator: regex_any
+    case_sensitive: true
+    values: ['[补][\s｜|〉》<〈·•]{1,2}[贴貼]', '[部][贴貼]']
+
+# ---- 学术征稿/会议推广（中英文）：主题命中 4 分，正文命中 3 分 ----
+# "2023通讯工程…国际会议（2月27-28日在中国济南举行）" / "Waiting for Your Special Issue Submission"
+- id: subject_academic_solicitation
+  name: 主题学术征稿推广
+  category: body
+  points: 4
+  reason: "主题包含学术征稿/会议推广话术（命中: {value}）"
+  match:
+    field: subject
+    operator: contains_any
+    values: ["@dict:academic_solicitation"]
+
+- id: body_academic_solicitation
+  name: 正文学术征稿推广
+  category: body
+  points: 3
+  reason: "正文包含学术征稿/会议推广话术（命中: {value}）"
+  match:
+    field: body
+    operator: contains_any
+    values: ["@dict:academic_solicitation"]
+
+# ---- 企业礼品营销群发：礼品 + 采购语境双命中，弱信号 ----
+# "我是陈晓飞，是专门为企业提供礼品的" / "三八妇女节的礼品，准备好了吗？"
+- id: body_gift_marketing
+  name: 正文礼品营销话术
+  category: body
+  points: 3
+  reason: "正文包含礼品采购营销话术（命中: {value}）"
+  match:
+    - field: body
+      operator: contains_any
+      values: ["礼品"]
+    - field: body
+      operator: contains_any
+      values: ["采购", "定制", "馈赠", "福利", "伴手礼", "随手礼", "员工关怀"]
+
+# ---- 邮箱系统迁移钓鱼：高精度组合，8 分 ----
+# "kust.edu.cn邮件系统通知：为提升邮件系统性能和安全…请点击登陆…云邮箱"
+# 与补贴/征稿不同：正常邮件几乎不会同时谈"邮箱系统升级/迁移"且带链接，
+# 因此给到接近定性的分值。
+- id: body_mail_system_lure
+  name: 邮箱系统升级钓鱼
+  category: body
+  points: 8
+  reason: "正文以邮箱系统升级/迁移为诱饵并引导点击（命中: {value}）"
+  match:
+    - field: body
+      operator: regex_any
+      values: ['(邮箱|邮件系统)[^。\n]{0,24}(升级|迁移|切换|扩容|扩容升级|整改)']
+    - field: url_count
+      operator: gt
+      values: [0]
+
+# ---- 主题字符混淆：CJK 字符间插入空格/全角标点（对抗关键词检测）----
+# "2023年第一季度《财 政》补〉贴" —— 财空格政、补〉贴，两处插噪。
+# 要求 >=2 处才计分：单个"CJK 空格 CJK"在正常中英混排主题里偶有出现。
+- id: subject_cjk_noise
+  name: 主题字符混淆
+  category: body
+  points: 3
+  reason: "主题在汉字间插入空格/标点对抗关键词检测（{value}）"
+  match:
+    field: subject
+    operator: regex_count_gt
+    case_sensitive: true
+    values: ['[\u4e00-\u9fff][\s｜|〉》<〈《·•][\u4e00-\u9fff]', 1]

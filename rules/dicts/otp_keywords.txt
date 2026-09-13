@@ -1,0 +1,8 @@
+# 验证码话术（正文，子串匹配）
+verification code
+one-time password
+otp code
+enter the code
+验证码
+codigo
+cod.

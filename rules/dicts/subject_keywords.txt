@@ -1,0 +1,41 @@
+# 主题钓鱼高频词（子串匹配；匹配前做混淆还原 + 去变音符号）
+urgent
+action required
+verify
+suspended
+locked
+unusual
+wire transfer
+payroll
+package
+parcel
+shipment
+delivery
+delivery failed
+tracking number
+returned to sender
+customs
+otp
+verification code
+security alert
+reset your
+credito
+codigo
+notificacao
+resgate
+cartao
+pontos
+fatura
+irpf
+tributaria
+bitcoin
+lottery
+winner
+gift card
+giftcard
+geschenkkarte
+airdrop
+giveaway
+you have won
+prize
+gewinn

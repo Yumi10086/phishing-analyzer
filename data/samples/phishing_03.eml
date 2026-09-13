@@ -1,0 +1,24 @@
+From: DHL Express <tracking@dhl-parcel-notice.example>
+To: victim.user@corp.example.com
+Subject: Final notice: package held at customs, pay now
+Date: Fri, 11 Sep 2026 22:15:25 -0000
+Message-ID: <178916492564.37348.13829683473693007265@mail.example.com>
+Authentication-Results: mx.corp.example.com; spf=fail
+ smtp.mailfrom=dhl-parcel-notice.example; dkim=none; dmarc=fail
+Return-Path: <dhl-parcel-notice.example>
+Reply-To: customs-pay@dhl-parcel-notice.example
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Dear customer,
+
+Your package DE8849205771 is held at customs. An outstanding billing fee of 1=
+.99 EUR
+must be paid within 24 hours, otherwise the package will be returned.
+
+Pay now and track: hxxp://bit.ly/3xFakeDhlPay
+Alternative: http://198.51.100.23/dhl/billing/verify
+Official mirror: https://xn--dhl-express-4ed.example/track
+
+DHL Express Team

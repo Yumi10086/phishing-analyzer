@@ -1,0 +1,25 @@
+From: PayPal Service <service@paypal-secure-verify.example>
+To: victim.user@corp.example.com
+Subject: Urgent: Unusual activity detected, verify now!
+Date: Fri, 11 Sep 2026 22:15:25 -0000
+Message-ID: <178916492564.37348.11912111323170801651@mail.example.com>
+Authentication-Results: mx.corp.example.com; spf=fail
+ smtp.mailfrom=paypal-secure-verify.example; dkim=none; dmarc=fail
+Return-Path: <bounce@mailer-daemon.example.invalid>
+Reply-To: recover-center@example.invalid
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Dear customer,
+
+We detected unusual activity on your account. Your account will be PERMANENTLY
+LOCKED within 24 hours unless you verify your identity immediately.
+
+Confirm your identity here:
+  - http://203.0.113.66/account/verify/login
+  - https://xn--pypl-secure-cvf.example/login
+
+Enter your password and card details to restore access.
+
+PayPal Security Team

@@ -1,0 +1,16 @@
+From: Docs Portal <no-reply@docs.example.org>
+To: li.li@corp.example.com
+Subject: [Docs] =?utf-8?b?5oKo55qE55+l6K+G5bqT5paH56ug5bey5a6h5qC46YCa6L+H?=
+Date: Fri, 11 Sep 2026 22:15:25 -0000
+Message-ID: <178916492563.37348.17994966860614808923@mail.example.com>
+Authentication-Results: mx.corp.example.com; spf=pass
+ smtp.mailfrom=example.org; dkim=pass header.d=example.org; dmarc=pass
+Return-Path: <bounces@docs.example.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+MIME-Version: 1.0
+
+5oKo5aW977yaCgrmgqjmj5DkuqTnmoTmlofnq6DjgIrpgq7ku7bnvZHlhbPnrZbnlaXphY3nva7m
+jIfljZfjgIvlt7LpgJrov4flrqHmoLjlubblj5HluIPjgIIKCuafpeeci+mhtemdojogaHR0cHM6
+Ly9kb2NzLmV4YW1wbGUub3JnL2d1aWRlL21haWwtZ2F0ZXdheS1wb2xpY3kKCuWmguacieeWkemX
+ruivt+WbnuWkjeacrOmCruS7tuOAggpEb2NzIFBvcnRhbCDlm6LpmJ8K

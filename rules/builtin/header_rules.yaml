@@ -1,0 +1,53 @@
+# 邮件认证/头部特征规则（作用域: mail）
+- id: header_reply_mismatch
+  name: Reply-To 域名不一致
+  category: header
+  points: 3
+  reason: "Reply-To 域名与发件人域名不一致: {reply_to.domain}"
+  match:
+    field: auth.reply_to_aligned
+    operator: equals_any
+    values: [false]
+
+- id: header_return_path_mismatch
+  name: Return-Path 域名不一致
+  category: header
+  points: 6
+  reason: "Return-Path 域名与发件人域名不一致: {return_path.domain}"
+  match:
+    field: auth.return_path_aligned
+    operator: equals_any
+    values: [false]
+
+- id: header_missing_auth
+  name: 缺少认证结果头
+  category: header
+  points: 2
+  reason: "邮件缺少 Authentication-Results 头（非正规投递渠道）"
+  match:
+    field: auth.has_auth_header
+    operator: equals_any
+    values: [false]
+
+# DMARC 的 pass 只能来自 SPF 或 DKIM 至少一项对齐通过。同一条认证头里 spf/dkim
+# 都明确给出结果且都非 pass，却声明 dmarc=pass，合规接收方不会这样写——属伪造/
+# 篡改认证头。只在单条头内部判定，跨头合并（不同 authserv-id 各覆盖部分方法）不触发。
+- id: header_auth_inconsistent
+  name: 认证头自相矛盾
+  category: header
+  points: 6
+  reason: "Authentication-Results 自相矛盾：DMARC 声明 pass 但同头内 SPF/DKIM 均未 pass（伪造认证头特征）"
+  match:
+    field: auth.dmarc_without_mechanism
+    operator: equals_any
+    values: [true]
+
+# 独立信号叠加（朴素贝叶斯思想：多个弱信号联合即强证据）
+# 分值由探测器按已触发信号数动态给出（3项+4 / 4项+8 / 5项+12）
+- id: signal_stack
+  name: 信号叠加
+  category: header
+  kind: detector
+  detector: signal_stack
+  points: 12
+  reason: "独立风险信号叠加（共 {value} 项）"

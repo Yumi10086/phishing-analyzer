@@ -1,0 +1,11 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+httpx>=0.27
+python-multipart>=0.0.9
+extract-msg>=0.53
+pyyaml>=6.0
+pytest>=8.0
+
+# 可选依赖（进阶功能）
+# yara-python>=4.5      # YARA 规则检测
+# streamlit>=1.38       # 统计看板

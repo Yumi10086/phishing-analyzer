@@ -1,0 +1,14 @@
+# 短链接服务域（匹配 host 或其父域）
+bit.ly
+t.co
+tinyurl.com
+goo.gl
+is.gd
+ow.ly
+buff.ly
+rebrand.ly
+cutt.ly
+shorturl.at
+rb.gy
+t.ly
+s.id

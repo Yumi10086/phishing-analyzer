@@ -1,0 +1,8 @@
+# Streamlit 主题（Sci-Fi HUD：深空 #020617 + 青色发光 #06B6D4 + 等宽字体）
+[theme]
+base = "dark"
+primaryColor = "#06B6D4"
+backgroundColor = "#020617"
+secondaryBackgroundColor = "#0f172a"
+textColor = "#E5F2FF"
+font = "monospace"

@@ -1,0 +1,53 @@
+# 学术征稿/会议推广话术（子串匹配；匹配前做混淆还原 + 小写化）
+# 背景：datacon2023 day1 中大量漏判样本为批量学术会议征稿/期刊约稿/研修班推广，
+# 中英文混杂。只收"征集投稿/会议推广"语境的短语，不收 paper/research 这类
+# 学术通用词，避免正常学术邮件误报。
+# 配套规则：subject_academic_solicitation（主题命中，分高）/ body_academic_solicitation（正文命中，分低）
+# ---- 中文 ----
+国际会议
+学术会议
+学术论坛
+征稿
+投稿
+投稿须知
+论文投稿
+投稿邮箱
+研修班
+研讨会邀请
+论文写作
+标书撰写
+国自然基金
+课题申报
+基金申报
+核心期刊
+期刊约稿
+论文发表
+版面费
+检索类型
+EI检索
+EI会议
+SCI检索
+SCI期刊
+CPCI检索
+斯普林格
+# ---- 英文 ----
+call for papers
+call for paper
+special issue
+manuscript submission
+submit a paper
+submit your paper
+submit your manuscript
+paper submission
+abstract submission
+international conference
+conference proceedings
+publication fee
+processing fee
+issue of
+journal of
+invite you to submit
+invitation to submit
+review process
+scopus indexed
+isi indexed

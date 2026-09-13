@@ -1,0 +1,30 @@
+services:
+  api:
+    build: .
+    container_name: phishing-analyzer-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # 持久化报告、缓存与规则（管理界面改的规则重启不丢）
+      - ./data:/app/data
+      - ./rules:/app/rules
+    env_file:
+      - .env            # 复制 .env.example 为 .env 后填入 API Key
+    restart: unless-stopped
+
+  # 可选：Streamlit 看板
+  dashboard:
+    build: .
+    container_name: phishing-analyzer-dashboard
+    command: ["streamlit", "run", "dashboard.py", "--server.port", "8501", "--server.address", "0.0.0.0"]
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  # 可选：TheHive 工单系统（需要 ES/数据库，生产部署请参考官方 compose）
+  # thehive:
+  #   image: thehiveproject/thehive4:latest
+  #   ports:
+  #     - "9000:9000"

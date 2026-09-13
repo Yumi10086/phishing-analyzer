@@ -1,0 +1,34 @@
+# 链接域与发件域关系规则（作用域: mail，字段由 build_features 计算）
+#
+# 背景：邮件正文里的链接域名与发件域名本该属同一主体。钓鱼邮件有两种典型偏离：
+#   1. 仿冒配对——链接域是发件域的"标签内前后缀注入"
+#      （发件 bizsupport.co，链接 support.co；或反向），同一主体不会这样互链；
+#   2. 无关域名——链接跳到与发件方完全无关的域名。
+# 注意：
+#   - 可注册域相同不算不一致（mail.example.com 与 example.com 同属 example.com），
+#     因此常规"子域 -> 主域"跳转不会触发；
+#   - 短链与已知合法第三方服务域见 rules/dicts/link_allowlist.txt，由白名单排除，
+#     否则正常营销邮件（社交/ESP/CDN 链接）会大量误报；
+#   - 两条规则互斥（仿冒配对不再按"无关域名"重复计分）。
+
+- id: link_domain_lookalike
+  name: 链接域仿冒发件域
+  category: link
+  scope: mail
+  points: 10
+  reason: "链接域名与发件域名构成仿冒配对: {value}"
+  match:
+    field: link_domain_lookalike
+    operator: exists
+    values: [true]
+
+- id: link_domain_mismatch
+  name: 链接域与发件域无关
+  category: link
+  scope: mail
+  points: 4
+  reason: "链接域名与发件域名不一致: {value}"
+  match:
+    field: link_domain_mismatch
+    operator: exists
+    values: [true]

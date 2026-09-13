@@ -1,0 +1,68 @@
+# 附件特征规则（作用域: attachment，逐附件迭代）
+- id: att_double_ext
+  name: 双扩展名伪装
+  category: attachment
+  scope: attachment
+  points: 10
+  reason: "附件疑似双扩展名伪装: {filename}"
+  match:
+    field: filename_lower
+    operator: regex_any
+    values: ['\..+\.']
+    exclude:
+      field: extension
+      operator: equals_any
+      values: [gz, bz2, tar]
+
+- id: att_macro
+  name: 宏启用文档
+  category: attachment
+  scope: attachment
+  points: 8
+  reason: "附件为宏启用文档: {filename}"
+  match:
+    field: extension
+    operator: equals_any
+    values: [docm, xlsm, pptm, dotm, xlam]
+
+- id: att_executable
+  name: 可执行/脚本附件
+  category: attachment
+  scope: attachment
+  points: 10
+  reason: "附件为可执行/脚本文件: {filename}"
+  match:
+    field: extension
+    operator: equals_any
+    values: [exe, scr, js, vbs, hta, bat, cmd, ps1, jar, lnk]
+
+- id: att_iso
+  name: 光盘镜像附件
+  category: attachment
+  scope: attachment
+  points: 6
+  reason: "附件为光盘镜像（常见恶意载荷投递方式）: {filename}"
+  match:
+    field: extension
+    operator: equals_any
+    values: [iso, img]
+
+- id: att_html
+  name: HTML 附件
+  category: attachment
+  scope: attachment
+  points: 4
+  reason: "附件为 HTML（常见钓鱼登录页投递方式）: {filename}"
+  match:
+    field: extension
+    operator: equals_any
+    values: [html, htm]
+
+- id: att_random_name
+  name: 随机文件名
+  category: attachment
+  scope: attachment
+  kind: detector
+  detector: att_random_name
+  points: 5
+  reason: "附件文件名疑似随机生成（常见恶意载荷命名）: {value}"

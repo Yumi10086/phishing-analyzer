@@ -1,0 +1,77 @@
+# URL 特征规则（作用域: url，逐条 URL 迭代，任一命中即触发）
+- id: url_ip_literal
+  name: URL IP 直连
+  category: url
+  scope: url
+  points: 8
+  reason: "URL 使用 IP 直连而非域名: {url}"
+  match:
+    field: url
+    operator: regex_any
+    values: ['^[a-z]+://\d{1,3}(\.\d{1,3}){3}']
+
+- id: url_suspicious_tld
+  name: 高风险顶级域名
+  category: url
+  scope: url
+  points: 5
+  reason: "URL 使用高风险顶级域名: {url}"
+  match:
+    field: host
+    operator: suffix_any
+    values: ["@dict:suspicious_tlds"]
+
+- id: url_punycode
+  name: Punycode 域名
+  category: url
+  scope: url
+  points: 8
+  reason: "URL 含 Punycode 域名（可能的同形字伪造）: {url}"
+  match:
+    field: url
+    operator: contains_any
+    values: ["xn--"]
+
+- id: url_shortener
+  name: 短链接服务
+  category: url
+  scope: url
+  points: 5
+  reason: "URL 使用短链接服务: {url}"
+  match:
+    field: host
+    operator: suffix_any
+    values: ["@dict:shorteners"]
+
+- id: url_at_sign
+  name: URL @ 符号混淆
+  category: url
+  scope: url
+  points: 6
+  reason: "URL 中包含 @ 符号（混淆真实主机）: {url}"
+  match:
+    field: url
+    operator: regex_any
+    values: ['^[a-z]+://[^/]*@']
+
+- id: url_many_subdomains
+  name: 子域名层级异常
+  category: url
+  scope: url
+  points: 4
+  reason: "URL 子域名层级异常（>=4）: {url}"
+  match:
+    field: label_count
+    operator: gt
+    values: [3]
+
+- id: url_keywords
+  name: URL 凭证关键词
+  category: url
+  scope: url
+  points: 5
+  reason: "URL 包含凭证/验证相关关键词: {url}"
+  match:
+    field: url
+    operator: contains_any
+    values: ["@dict:url_keywords"]

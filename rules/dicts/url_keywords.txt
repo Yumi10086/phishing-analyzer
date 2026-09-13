@@ -1,0 +1,19 @@
+# URL 凭证/验证关键词（子串匹配）
+login
+signin
+verify
+secure
+account
+update
+password
+confirm
+billing
+invoice
+wallet
+recover
+unlock
+登录
+验证
+账户
+密码
+重置

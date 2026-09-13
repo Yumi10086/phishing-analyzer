@@ -1,0 +1,21 @@
+# 高风险顶级域名（匹配 URL host 的最后一段）
+zip
+mov
+top
+xyz
+tk
+ml
+ga
+cf
+gq
+cn
+ru
+click
+link
+work
+rest
+country
+kim
+loan
+skin
+biz

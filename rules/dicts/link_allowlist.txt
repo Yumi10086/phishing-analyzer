@@ -1,0 +1,99 @@
+# 链接域白名单：正常邮件常链接的第三方服务域（社交/ESP/云/CDN/协作/支付/短链）。
+# 这些域与发件域不一致属正常现象，不参与"链接域与发件域不一致/仿冒配对"判定。
+# 短链域在此重复列出：它们已由 url_shortener 单独计分，不应再按"域不一致"重复计分。
+# 匹配的是可注册域名（eTLD+1），每行一个，# 注释，可自行裁剪。
+# ---- 短链服务 ----
+bit.ly
+t.co
+tinyurl.com
+goo.gl
+is.gd
+ow.ly
+buff.ly
+rebrand.ly
+cutt.ly
+shorturl.at
+rb.gy
+t.ly
+s.id
+urlz.fr
+# ---- 社交/媒体 ----
+facebook.com
+fb.com
+instagram.com
+twitter.com
+x.com
+linkedin.com
+youtube.com
+youtu.be
+tiktok.com
+pinterest.com
+whatsapp.com
+telegram.org
+spotify.com
+netflix.com
+# ---- 云/平台/CDN ----
+google.com
+gstatic.com
+googleusercontent.com
+googleapis.com
+youtube-nocookie.com
+microsoft.com
+office.com
+microsoftonline.com
+live.com
+apple.com
+icloud.com
+amazon.com
+amazonaws.com
+cloudfront.net
+akamai.net
+akamaized.net
+cloudflare.com
+adobe.com
+oracle.com
+sap.com
+# ---- 发信平台 / 营销自动化 ----
+sendgrid.net
+mailchimp.com
+list-manage.com
+mailgun.org
+sendinblue.com
+brevo.com
+hubspot.com
+salesforce.com
+marketo.com
+exacttarget.com
+constantcontact.com
+campaign-archive.com
+# ---- 协作 / 工单 / 办公 ----
+zendesk.com
+servicenow.com
+freshdesk.com
+intercom.io
+salesloft.com
+outreach.io
+dropbox.com
+box.com
+github.com
+gitlab.com
+atlassian.net
+slack.com
+zoom.us
+webex.com
+docusign.net
+docusign.com
+workday.com
+okta.com
+onelogin.com
+forms.office.com
+# ---- 支付 / 电商 / 表单 ----
+stripe.com
+paypal.com
+shopify.com
+wix.com
+squarespace.com
+typeform.com
+surveymonkey.com
+eventbrite.com
+calendly.com

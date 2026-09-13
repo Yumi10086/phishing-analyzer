@@ -1,0 +1,17 @@
+From: =?utf-8?b?5byg5Lyf?= <zhangwei@corp.example.com>
+To: project-team@corp.example.com
+Subject: Q3 =?utf-8?b?5a6J5YWo5ZGo5oql5LiO6K+E5a6h5Lya6K6u5a6J5o6S?=
+Date: Fri, 11 Sep 2026 22:15:25 -0000
+Message-ID: <178916492562.37348.3986117716125752123@mail.example.com>
+Authentication-Results: mx.corp.example.com; spf=pass
+ smtp.mailfrom=corp.example.com; dkim=pass; dmarc=pass
+Return-Path: <zhangwei@corp.example.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+MIME-Version: 1.0
+
+5ZCE5L2N5aW977yaCgrmnKzlkajlronlhajor4TlrqHkvJrorq7lronmjpLlnKjlkajlm5vkuIvl
+jYggMiDngrnvvIzkvJrorq7lrqQgQjMwMuOAggror7flkITkvY3mj5DliY3lh4blpIfkuIrlkajn
+moTlkYrorablpI3nm5jmnZDmlpnvvIzph43ngrnnnIvpkpPpsbznsbvlkYrorabnmoTlpITnkIbm
+l7bplb/jgIIKCumZhOS7tueojeWQjueUseeOi+iKs+WNleeLrOWPkemAgeOAggoK5byg5LyfCuS/
+oeaBr+WuieWFqOmDqAo=

@@ -1,0 +1,126 @@
+# 发件人身份伪造规则（作用域: mail，字段见 build_features 的 mail 字典）
+# 分值与旧版 risk_engine 保持一致；自定义规则放 rules/custom/ 可按 id 覆盖
+- id: text_invisible_obfuscation
+  name: 字符混淆
+  category: sender_identity
+  kind: detector
+  detector: text_invisible_obfuscation
+  points: 6
+  reason: "显示名/主题/正文含零宽或组合记号混淆（对抗关键词检测）"
+
+- id: from_header_multi_address
+  name: From 头多地址
+  category: sender_identity
+  points: 4
+  reason: "From 头包含多个地址/显示名重复（头注入或伪造痕迹）"
+  match:
+    field: from.raw
+    operator: count_gt
+    values: ["@", 1]
+
+- id: from_localpart_numeric_noise
+  name: 发件地址数字噪声
+  category: sender_identity
+  points: 4
+  reason: "发件地址本地部分含大量数字噪声: {from.localpart}"
+  match:
+    field: from.localpart
+    operator: regex_count_gt
+    values: ['\d', 4]
+
+- id: from_display_brand_spoof
+  name: 显示名品牌冒充
+  category: sender_identity
+  points: 8
+  reason: "显示名冒充品牌（{value}）但发件域名为 {from.domain}"
+  match:
+    field: from.display_name
+    operator: contains_any
+    values: ["@dict:brands"]
+    exclude:
+      field: from.domain
+      operator: contains_any
+      values: ["@dict:brands"]
+
+- id: from_display_email_mismatch
+  name: 显示名内嵌假邮箱
+  category: sender_identity
+  kind: detector
+  detector: from_display_email_mismatch
+  points: 8
+  reason: "显示名内嵌邮箱域名与真实发件域名 {value} 不一致"
+
+- id: domain_leet_brand
+  name: 域名数字混淆仿冒
+  category: sender_identity
+  points: 8
+  reason: "发件域名疑似品牌数字混淆仿冒: {from.domain}"
+  match:
+    field: from.domain_leet
+    operator: contains_any
+    values: ["@dict:brands"]
+    exclude:
+      field: from.domain
+      operator: contains_any
+      values: ["@dict:brands"]
+
+- id: reply_to_freemail
+  name: 企业域名回信到免费邮箱
+  category: sender_identity
+  points: 6
+  reason: "企业域名发信但 Reply-To 指向免费邮箱: {reply_to.domain}"
+  match:
+    field: reply_to.domain
+    operator: equals_any
+    values: ["@dict:freemail"]
+    exclude:
+      field: from.domain
+      operator: equals_any
+      values: ["@dict:freemail"]
+
+# 免费邮箱发件：只作弱信号（2 分）。
+#
+# 曾试过"DMARC 通过时不计分"（理由：DMARC pass 说明该免费邮箱域确实授权了这封信），
+# **实测后否决**：
+#   1. 收益为零——权威基线上三种变体（不改 / 排除 dmarc=pass / 降到 1 分）的 ham 误报
+#      完全相同（13/1500 = 0.87%），因为前置的两条改动（对齐去重、认证上限 12）已经把
+#      这批贴线样本压到阈值以下；
+#   2. 代价明确——phishing_pot 前 500 封召回 84.0% -> 82.8%（排除）或 83.2%（降分）；
+#   3. 概念上也不成立——典型免费邮箱钓鱼"PayPal Support <x@gmail.com>"里，gmail.com
+#      的 SPF/DKIM **本来就是通过的**，按 dmarc=pass 排除恰好杀掉这条规则要抓的场景。
+- id: sender_from_freemail
+  name: 免费邮箱发件
+  category: sender_identity
+  points: 2
+  reason: "发件域名为免费邮箱: {from.domain}"
+  match:
+    field: from.domain
+    operator: equals_any
+    values: ["@dict:freemail"]
+
+
+- id: display_name_all_caps
+  name: 显示名全大写
+  category: sender_identity
+  points: 3
+  reason: "显示名全大写（伪装常用手法）: {from.display_name_raw}"
+  match:
+    - field: from.display_upper_ratio
+      operator: gt
+      values: [0.7]
+    - field: from.display_word_count
+      operator: gt
+      values: [1]
+    - field: from.display_letter_count
+      operator: gt
+      values: [5]
+
+- id: display_name_decoration
+  name: 显示名装饰符号
+  category: sender_identity
+  points: 3
+  reason: "显示名含大量装饰符号: {from.display_name_raw}"
+  match:
+    field: from.display_name
+    operator: regex_count_gt
+    values: ['[|*#^~<>{}\[\]/=+]', 2]

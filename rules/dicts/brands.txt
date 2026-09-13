@@ -1,0 +1,33 @@
+# 被冒充品牌清单（子串匹配，匹配前会做混淆还原 + 小写化）
+# 格式：每行一个词条，# 开头为注释
+paypal
+microsoft
+office365
+outlook
+apple
+icloud
+amazon
+netflix
+dhl
+fedex
+hsbc
+wells fargo
+chase
+aadhaar
+samsung
+at&t
+coinbase
+binance
+bradesco
+banco do brasil
+livelo
+itau
+nubank
+americanas
+mercadolivre
+mercado pago
+pagseguro
+correios
+aldi
+mastercard
+visa card

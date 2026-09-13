@@ -1,0 +1,336 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "钓鱼邮件自动化研判与响应系统",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "output": "architecture.html",
+    "viewBox": [
+      910,
+      480
+    ]
+  },
+  "components": [
+    {
+      "id": "gui",
+      "type": "frontend",
+      "label": "Streamlit GUI",
+      "sublabel": "三页控制台",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        105,
+        64
+      ],
+      "tag": "gui/"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "FastAPI / CLI",
+      "sublabel": "HTTP 与命令行",
+      "pos": [
+        184,
+        40
+      ],
+      "size": [
+        105,
+        64
+      ],
+      "tag": "main.py"
+    },
+    {
+      "id": "intel",
+      "type": "external",
+      "label": "威胁情报源",
+      "sublabel": "VT · AbuseIPDB",
+      "pos": [
+        472,
+        40
+      ],
+      "size": [
+        105,
+        64
+      ]
+    },
+    {
+      "id": "thehive",
+      "type": "external",
+      "label": "TheHive",
+      "sublabel": "工单闭环",
+      "pos": [
+        760,
+        40
+      ],
+      "size": [
+        105,
+        64
+      ]
+    },
+    {
+      "id": "pipeline",
+      "type": "backend",
+      "label": "分析流水线",
+      "sublabel": "编排五阶段",
+      "pos": [
+        40,
+        200
+      ],
+      "size": [
+        105,
+        64
+      ],
+      "tag": "pipeline.py"
+    },
+    {
+      "id": "parser",
+      "type": "backend",
+      "label": "邮件解析",
+      "sublabel": ".eml / .msg",
+      "pos": [
+        184,
+        200
+      ],
+      "size": [
+        105,
+        64
+      ],
+      "tag": "parser/"
+    },
+    {
+      "id": "extractor",
+      "type": "backend",
+      "label": "IOC 与认证",
+      "sublabel": "URL · IP · 哈希",
+      "pos": [
+        328,
+        200
+      ],
+      "size": [
+        105,
+        64
+      ],
+      "tag": "extractor/"
+    },
+    {
+      "id": "enricher",
+      "type": "backend",
+      "label": "情报富化",
+      "sublabel": "并发 + 限流",
+      "pos": [
+        472,
+        200
+      ],
+      "size": [
+        105,
+        64
+      ],
+      "tag": "enrichment/"
+    },
+    {
+      "id": "scoring",
+      "type": "backend",
+      "label": "加权评分",
+      "sublabel": "55/15/30 权重",
+      "pos": [
+        616,
+        200
+      ],
+      "size": [
+        105,
+        64
+      ],
+      "tag": "scoring/"
+    },
+    {
+      "id": "response",
+      "type": "backend",
+      "label": "响应报告",
+      "sublabel": "JSON + HTML",
+      "pos": [
+        760,
+        200
+      ],
+      "size": [
+        105,
+        64
+      ],
+      "tag": "response/"
+    },
+    {
+      "id": "cache",
+      "type": "database",
+      "label": "SQLite 缓存",
+      "sublabel": "24h 情报缓存",
+      "pos": [
+        472,
+        360
+      ],
+      "size": [
+        105,
+        64
+      ],
+      "tag": "cache.db"
+    },
+    {
+      "id": "rules",
+      "type": "database",
+      "label": "声明式规则集",
+      "sublabel": "38 条 YAML",
+      "pos": [
+        616,
+        360
+      ],
+      "size": [
+        105,
+        64
+      ],
+      "tag": "rules/"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "本地分析内核 · 可离线运行",
+      "wraps": [
+        "pipeline",
+        "parser",
+        "extractor",
+        "enricher",
+        "scoring",
+        "response",
+        "cache",
+        "rules"
+      ],
+      "pad": 22
+    }
+  ],
+  "connections": [
+    {
+      "id": "gui-to-pipeline",
+      "from": "gui",
+      "to": "pipeline",
+      "label": "邮件上报",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 40
+    },
+    {
+      "id": "api-to-pipeline",
+      "from": "api",
+      "to": "pipeline",
+      "label": "POST /analyze",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 14
+    },
+    {
+      "id": "pipeline-to-parser",
+      "from": "pipeline",
+      "to": "parser",
+      "label": "解析",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "parser-to-extractor",
+      "from": "parser",
+      "to": "extractor",
+      "label": "提取",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "extractor-to-enricher",
+      "from": "extractor",
+      "to": "enricher",
+      "label": "富化",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "enricher-to-scoring",
+      "from": "enricher",
+      "to": "scoring",
+      "label": "评分",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "scoring-to-response",
+      "from": "scoring",
+      "to": "response",
+      "label": "响应",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "enricher-to-intel",
+      "from": "enricher",
+      "to": "intel",
+      "label": "情报查询",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": -40
+    },
+    {
+      "id": "enricher-to-cache",
+      "from": "enricher",
+      "to": "cache",
+      "label": "读写缓存",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 40
+    },
+    {
+      "id": "rules-to-scoring",
+      "from": "rules",
+      "to": "scoring",
+      "label": "38 条规则",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": -26
+    },
+    {
+      "id": "response-to-thehive",
+      "from": "response",
+      "to": "thehive",
+      "label": "创建工单",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": -40
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "五阶段流水线",
+      "items": [
+        "解析 → 提取 → 富化 → 评分 → 响应，由 analyze_bytes 单点编排",
+        "单封离线分析 2–5 ms，GUI 与 API 共用同一链路"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "可解释评分",
+      "items": [
+        "评分规则外置为 YAML，支持在线增删改与热重载",
+        "每条结论附带研判依据，报告记录规则版本哈希以复现复盘"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "情报与闭环",
+      "items": [
+        "三源情报异步并发，SQLite 缓存 24h 规避免费额度限流",
+        "高置信告警自动创建 TheHive 工单，完成研判到处置闭环"
+      ]
+    }
+  ]
+}

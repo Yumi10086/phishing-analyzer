@@ -1,0 +1,34 @@
+# 紧急恐吓措辞（正文/主题，子串匹配；匹配前做混淆还原）
+#
+# ⚠️ 有意不收的裸词（改前必读）：
+#   important / 重要 —— 正常商务与技术邮件里极度常见（"IMPORTANT: 系统维护通知"、
+#   "重要：请查收附件"），作为子串匹配会大面积误报。该词确实出现在
+#   spam-000005 的正文（"IMPORTANT: Submit your details to claim reward:"），
+#   但该样本已由 body_reward_lure（"claim reward"）与 body_credential_solicitation
+#   （"submit your details"）两条规则命中，**不需要**为此把它加进本字典。
+#   若确有业务需要，请用自定义规则限定更具体的组合（如 "important" 且带链接且
+#   发件域与链接域不一致），而不是放开这个裸词。
+urgent
+immediately
+action required
+suspended
+locked
+within 24 hours
+final notice
+unusual activity
+click here
+unauthorized access
+account limited
+blocked
+irpf
+紧急
+立即
+马上
+冻结
+过期
+异常
+点击这里
+sua conta
+bloqueado
+suspenso
+nao autorizado

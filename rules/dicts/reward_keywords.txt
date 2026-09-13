@@ -1,0 +1,20 @@
+# 奖励/中奖类诱饵话术（正文，子串匹配；匹配前做混淆还原）
+# 只收"诱导点击领奖"的表述，不收 prize/congratulations 这类正常商务与祝贺用语，
+# 避免正常营销/人事邮件误报。配套规则 body_reward_lure 还要求正文含链接。
+claim your reward
+claim reward
+claim your prize
+claim your gift
+claim your
+you have won
+you've won
+you are a winner
+winner selected
+lottery
+gift card
+giftcard
+free gift
+limited offer
+exclusive reward
+redeem your
+resgatar seu premio

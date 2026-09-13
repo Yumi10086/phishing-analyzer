@@ -1,0 +1,37 @@
+From: "PayPal Support" <service.alerts@gmail.com>
+To: victim.user@corp.example.com
+Subject: Action required: your account has been limited
+Date: Fri, 11 Sep 2026 22:15:25 -0000
+Message-ID: <178916492564.37348.13950289608324640623@mail.example.com>
+Authentication-Results: mx.corp.example.com; spf=pass smtp.mailfrom=gmail.com;
+ dkim=pass header.d=gmail.com; dmarc=pass
+Return-Path: <service.alerts@gmail.com>
+Reply-To: paypal.recovery@outlook.com
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+ boundary="===============0496132978017114082=="
+
+--===============0496132978017114082==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Dear customer,
+
+We detected unusual activity. Confirm your password and card details
+to restore full access immediately.
+
+PayPal Security Team
+
+--===============0496132978017114082==
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<html><body>
+<p>Dear customer,</p>
+<p>Your account has been limited. Verify now:</p>
+<p><a href=3D"http://203.0.113.99/paypal/login">https://www.paypal.com/secure=
+-login</a></p>
+</body></html>
+
+--===============0496132978017114082==--
