@@ -55,6 +55,9 @@ oracle.com
 sap.com
 # ---- 发信平台 / 营销自动化 ----
 sendgrid.net
+# sendcloud.net：国产 ESP（Xmind 等国内 SaaS 的点击追踪域，sctrack.sendcloud.net）。
+# 实测：Xmind 欢迎邮件（正常）因它被计 link_domain_mismatch + anchor_text_mismatch。
+sendcloud.net
 mailchimp.com
 list-manage.com
 mailgun.org
@@ -97,3 +100,28 @@ typeform.com
 surveymonkey.com
 eventbrite.com
 calendly.com
+# ---- 教育网 / 学术基础设施 ----
+# trec06c 正常邮件实证：.edu.cn 发件人链接教育网门户（net.edu.cn=赛尔网络）是机构内互链，
+# 按"链接域与发件域不一致"计分属误报。这些域为教育网基础设施，无钓鱼滥用先例。
+net.edu.cn
+cernet.edu.cn
+cernet.com
+# ---- 邮箱服务商自有域 / 结构性元数据域（2026-09，真实个人邮箱实测）----
+# webmail 渲染与邮件模版会注入**服务商自有**的域，与发件域比对必然"不一致"，
+# 但它们是邮件基础设施，不是"跳到无关域名"：
+#   qlogo.cn（QQ 邮箱头像/Logo CDN）、qpic.cn / gtimg.cn（腾讯图片 CDN）、
+#   qqmail.com（QQ 邮箱官网）、mzstatic.com（Apple 内容 CDN）
+# 另有一类是 HTML 的结构性 URL——XML 命名空间与 Open Graph / schema.org 元数据
+# （w3.org / ogp.me / schema.org），它们出现在每个正常 HTML 邮件里，被 IOC 提取器
+# 当作 URL 抽出来后就成了"链接域"，同样不该按域不一致计分。
+qlogo.cn
+qpic.cn
+gtimg.cn
+qqmail.com
+mzstatic.com
+w3.org
+ogp.me
+schema.org
+ns.adobe.com
+openxmlformats.org
+purl.org

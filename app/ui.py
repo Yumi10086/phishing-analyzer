@@ -13,11 +13,14 @@ hud_header() 输出 "英文标签 // 中文标题" 的 HUD 区块头。
 """
 from __future__ import annotations
 
+import contextlib
+
 import os
 import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Iterator
 
 import streamlit as st
 
@@ -29,6 +32,7 @@ log = get_logger(__name__)
 _VERDICT_STYLES = {
     "MALICIOUS": ("#EF4444", "rgba(239, 68, 68, 0.45)", "rgba(239, 68, 68, 0.08)", "恶意", "MALICIOUS"),
     "SUSPICIOUS": ("#F97316", "rgba(249, 115, 22, 0.45)", "rgba(249, 115, 22, 0.08)", "可疑", "SUSPICIOUS"),
+    "SPAM": ("#A3A3A3", "rgba(163, 163, 163, 0.45)", "rgba(163, 163, 163, 0.08)", "垃圾", "SPAM"),
     "BENIGN": ("#22C55E", "rgba(34, 197, 94, 0.45)", "rgba(34, 197, 94, 0.08)", "正常", "BENIGN"),
 }
 
@@ -264,8 +268,12 @@ hr { border: none; height: 1px; background: var(--line-soft); }
   box-shadow: 0 0 8px rgba(34, 211, 238, 0.6);
 }
 
-/* ---------------- 按钮：终端风格 ---------------- */
-.stButton > button, .stDownloadButton > button {
+/* ---------------- 按钮：终端风格 ----------------
+   注意用**后代选择器**（`.stButton button`）而不是直接子选择器（`.stButton > button`）：
+   加了 help= 的按钮会被 Streamlit 包进一层 tooltip <span>，直接子选择器会静默漏掉它们——
+   实测 page 上所有带 tooltip 的主按钮（START / ENGAGE …）因此完全没吃到主题样式，
+   文字退化成 Streamlit 默认禁用/次级色，看起来"看不清字"。 */
+.stButton button, .stDownloadButton button {
   font-family: var(--mono);
   font-size: .75rem; font-weight: 500;
   letter-spacing: .12em; text-transform: uppercase;
@@ -276,28 +284,45 @@ hr { border: none; height: 1px; background: var(--line-soft); }
   padding: .5rem 1rem;
   transition: all .3s ease;
 }
-.stButton > button:hover, .stDownloadButton > button:hover {
+.stButton button:hover, .stDownloadButton button:hover {
   box-shadow: var(--glow-lg);
   border-color: rgba(34, 211, 238, 0.7);
   transform: translateY(-2px);
   color: var(--text);
 }
-.stButton > button:active, .stDownloadButton > button:active {
+.stButton button:active, .stDownloadButton button:active {
   /* Holographic Pierce：内发光反馈，非重力下沉 */
   transform: none;
   box-shadow: inset 0 0 14px rgba(34, 211, 238, 0.35);
 }
-.stButton > button[kind="primary"], .stDownloadButton > button[kind="primary"] {
+.stButton button[kind="primary"], .stDownloadButton button[kind="primary"] {
   background: rgba(6, 182, 212, 0.10);
   border-color: rgba(34, 211, 238, 0.55);
   color: #eafcff;   /* 近白主文字：低透底上对比度优先于霓虹感 */
   text-shadow: 0 0 6px rgba(34, 211, 238, 0.35);
 }
-.stButton > button[kind="primary"]:hover {
+.stButton button[kind="primary"]:hover {
   background: rgba(6, 182, 212, 0.26);
   box-shadow: var(--glow-lg);
 }
-.stButton > button:focus-visible {
+/* 禁用态必须**仍然可读**：Streamlit 默认为禁用按钮把文字压到 40% 透明、背景透明，
+   在深色底上几乎看不见（用户反馈"看不清字"）。这里给一个清晰的"虚线框 + 灰字"形态，
+   让"为什么点不了"这件事看得出来（多半是前置条件没满足，比如还没加载文件夹）。 */
+/* 选择器要压过 Streamlit 自带的禁用样式：两边都带 !important 时**比特异性**，
+   `div[data-testid="stButton"] > button:disabled`(0,2,2) 强于它的 `.st-emotion-cache-x:disabled`(0,2,0)。
+   （只写 `.stButton button:disabled`(0,1,1) 会输，实测改完样式没生效。） */
+div.stButton button:disabled, div[data-testid="stButton"] button:disabled,
+div.stDownloadButton button:disabled, div[data-testid="stDownloadButton"] button:disabled,
+div.stButton button[disabled], div[data-testid="stButton"] button[disabled] {
+  background: rgba(15, 23, 42, 0.45) !important;
+  border: 1px dashed rgba(148, 163, 184, 0.55) !important;
+  color: rgba(229, 242, 255, 0.72) !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  transform: none !important;
+  cursor: not-allowed !important;
+}
+.stButton button:focus-visible {
   outline: none; box-shadow: var(--focus-glow);
   border-color: rgba(34, 211, 238, 0.7);
 }
@@ -574,6 +599,11 @@ def pick_folder(initial: str = "") -> Path | None:
                     proc.returncode, (proc.stderr or "").strip()[:400])
         return None
     return resolve_folder(proc.stdout)
+
+
+# 抑制 spawn 子进程重执行主模块：实现移到 app/utils/mproc.py（创建进程池的地方都要用，
+# 不该只有 GUI 能用到），这里转出以保持既有调用点与测试不变
+from app.utils.mproc import suppress_spawn_main_reexec  # noqa: E402
 
 
 def verdict_badge(verdict: str) -> str:

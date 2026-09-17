@@ -3,11 +3,17 @@ from __future__ import annotations
 
 import hashlib
 
+from app.attachment.detector import sniff
 from app.parser.schemas import ParsedMail, _empty_result, safe_filename
 from app.utils.logger import get_logger
 
 log = get_logger(__name__)
 
+
+
+# 内容分析用的附件字节上限（与 eml_parser 同口径）
+_MAX_CONTENT_BYTES = 5 * 1024 * 1024
+_MAX_TOTAL_CONTENT_BYTES = 20 * 1024 * 1024
 
 def parse_msg(raw: bytes) -> ParsedMail:
     result = _empty_result("msg", len(raw))
@@ -35,8 +41,13 @@ def parse_msg(raw: bytes) -> ParsedMail:
     header = msg.header  # 原始头文本
     if header:
         for line in header.splitlines():
-            if line.lower().startswith("authentication-results:"):
+            low = line.lower()
+            if low.startswith("authentication-results:"):
                 result["authentication_results"].append(line.split(":", 1)[1].strip())
+            elif low.startswith("precedence:") and "precedence" not in headers:
+                headers["precedence"] = line.split(":", 1)[1].strip()
+            elif low.startswith("list-unsubscribe:") and "list-unsubscribe" not in headers:
+                headers["list-unsubscribe"] = line.split(":", 1)[1].strip()
 
     result["headers"] = headers
     result["body_text"] = msg.body or ""
@@ -45,9 +56,15 @@ def parse_msg(raw: bytes) -> ParsedMail:
     except Exception:  # noqa: BLE001
         result["body_html"] = ""
 
+    blobs: dict[int, bytes] = {}
+    blobs_total = 0
     for att in msg.attachments:
         data = att.data or b""
         name = safe_filename(att.longFilename or att.shortFilename or "(unnamed)")
+        oversized = len(data) > _MAX_CONTENT_BYTES
+        if not oversized and blobs_total + len(data) <= _MAX_TOTAL_CONTENT_BYTES:
+            blobs[len(result["attachments"])] = data
+            blobs_total += len(data)
         result["attachments"].append({
             "filename": name,
             "content_type": "application/octet-stream",
@@ -55,7 +72,10 @@ def parse_msg(raw: bytes) -> ParsedMail:
             "sha256": hashlib.sha256(data).hexdigest(),
             "md5": hashlib.md5(data).hexdigest(),  # noqa: S324
             "extension": name.rsplit(".", 1)[-1].lower() if "." in name else "",
+            "real_type": sniff(data[:4096]),
+            "oversized": oversized,
         })
+    result["_attachment_blobs"] = blobs
     return result
 
 

@@ -1,0 +1,23 @@
+# 中危附件扩展名：脚本与宏文档，需用户交互/宏启用才执行（三级清单·中）
+# 依据：脚本常被系统关联到解释器直接执行，宏文档是 Office 钓鱼主力；
+# 整合自原 att_executable（js/vbs/ps1/bat/cmd/jar）+ att_macro（docm/xlsm/pptm/dotm/xlam），
+# 分值 10/8 → 8（两者统一到中档）。
+js
+jse
+vbs
+vbe
+wsf
+wsh
+ps1
+bat
+cmd
+jar
+apk
+chm
+reg
+docm
+xlsm
+pptm
+dotm
+xlam
+xlsb

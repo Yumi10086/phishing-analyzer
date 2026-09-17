@@ -4,9 +4,10 @@
 """
 from __future__ import annotations
 
-import asyncio
 import io
+import os
 import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from collections import Counter
 from pathlib import Path
 
@@ -16,10 +17,11 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.extractor.ioc_extractor import count_iocs  # noqa: E402
-from app.pipeline import analyze_bytes  # noqa: E402
+from app.pipeline import analyze_batch_item  # noqa: E402
+from app.response.report import save_report  # noqa: E402
 from app.scoring.rule_loader import get_rule_engine  # noqa: E402
 from app.ui import (  # noqa: E402
-    discover_cached, hud_header, pick_folder, resolve_folder, sidebar_status, verdict_badge,
+    suppress_spawn_main_reexec, discover_cached, hud_header, pick_folder, resolve_folder, sidebar_status, verdict_badge,
 )
 
 _engine = get_rule_engine()
@@ -32,7 +34,7 @@ mode = st.radio("INPUT MODE", ["上传文件", "本地目录"], horizontal=True,
                 label_visibility="collapsed")
 offline = st.checkbox("OFFLINE MODE（跳过威胁情报查询）", value=True)
 
-_VERDICT_COLOR = {"MALICIOUS": "#ef4444", "SUSPICIOUS": "#f97316", "BENIGN": "#22c55e"}
+_VERDICT_COLOR = {"MALICIOUS": "#ef4444", "SUSPICIOUS": "#f97316", "SPAM": "#a3a3a3", "BENIGN": "#22c55e"}
 
 # ---- 本地目录选择 ----
 def _default_dir() -> str:
@@ -59,21 +61,33 @@ def _on_browse_folder() -> None:
 def _run_analysis(inputs: list[tuple[str, bytes]]) -> None:
     rows, reports, errors = [], [], []
     progress = st.progress(0.0, text="SCANNING…")
-    for i, (name, raw) in enumerate(inputs, 1):
-        progress.progress(i / len(inputs), text=f"SCANNING {i}/{len(inputs)} :: {name}")
-        try:
-            rep = asyncio.run(analyze_bytes(raw, filename=name, offline=offline))
-            reports.append(rep)
-            rows.append({
-                "文件": name,
-                "结论": rep["verdict"],
-                "评分": rep["score"],
-                "IOC数": count_iocs(rep["iocs"]),
-                "耗时ms": rep["processing_time_ms"],
-                "报告ID": rep["report_id"],
-            })
-        except Exception as exc:  # noqa: BLE001 - 单封失败不中断批量
-            errors.append((name, str(exc)[:120]))
+    # 多进程并行：OCR 是 CPU 密集（asyncio 无益）；worker 内 save=False，
+    # 报告落盘/索引由本进程串行执行（cache.db 为 sqlite，多进程并发写会锁库）
+    workers = min(8, (os.cpu_count() or 4))
+    done = 0
+    # 同 mailbox 页：抑制 spawn 子进程重执行本页面文件（详见 app.ui 的说明）
+    with suppress_spawn_main_reexec():
+        with ProcessPoolExecutor(max_workers=workers) as ex:
+            futures = {ex.submit(analyze_batch_item, (name, raw, offline, False)): name
+                       for name, raw in inputs}
+            for fut in as_completed(futures):
+                name = futures[fut]
+                done += 1
+                progress.progress(done / len(inputs), text=f"SCANNING {done}/{len(inputs)} :: {name}")
+                try:
+                    rep = fut.result()
+                    rep["report_files"] = save_report(rep)
+                    reports.append(rep)
+                    rows.append({
+                        "文件": name,
+                        "结论": rep["verdict"],
+                        "评分": rep["score"],
+                        "IOC数": count_iocs(rep["iocs"]),
+                        "耗时ms": rep["processing_time_ms"],
+                        "报告ID": rep["report_id"],
+                    })
+                except Exception as exc:  # noqa: BLE001 - 单封失败不中断批量
+                    errors.append((name, str(exc)[:120]))
     progress.empty()
     st.success(f"SCAN COMPLETE // 完成 {len(rows)} 封，失败 {len(errors)} 封")
     st.session_state["batch_rows"] = rows
@@ -99,11 +113,12 @@ def _show_results() -> None:
                  width='stretch', hide_index=True)
 
     vc = df["结论"].value_counts()
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("MALICIOUS", int(vc.get("MALICIOUS", 0)), border=True)
     c2.metric("SUSPICIOUS", int(vc.get("SUSPICIOUS", 0)), border=True)
-    c3.metric("BENIGN", int(vc.get("BENIGN", 0)), border=True)
-    c4.metric("AVG LATENCY", f"{df['耗时ms'].mean():.0f}ms", border=True)
+    c3.metric("SPAM", int(vc.get("SPAM", 0)), border=True)
+    c4.metric("BENIGN", int(vc.get("BENIGN", 0)), border=True)
+    c5.metric("AVG LATENCY", f"{df['耗时ms'].mean():.0f}ms", border=True)
 
     # ---- 报告详情查看（内嵌 HTML 报告） ----
     hud_header("RECORD DETAIL // 报告详情", "报告详情")

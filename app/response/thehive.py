@@ -17,6 +17,7 @@ def create_alert(report: dict[str, Any], severity_map: dict[str, int] | None = N
     severity_map = severity_map or {
         "MALICIOUS": 4,   # high
         "SUSPICIOUS": 3,  # medium
+        "SPAM": 1,        # low：营销/垃圾分流，正常不应推送工单
         "BENIGN": 2,      # low
     }
     iocs = report.get("iocs", {})

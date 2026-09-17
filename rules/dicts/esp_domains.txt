@@ -1,0 +1,33 @@
+# 已知邮件营销/批量发送服务平台（ESP）发信域（后缀匹配：域名等于或以 .子域结尾）
+# 用途：类别标签层（category）的营销证据之一；单条仅 1 分信息性规则 sender_esp_domain，
+# 不参与定性。注意只能匹配"发件域本身挂在 ESP 域下"的邮件（子域/回弹域），
+# 企业用自己的域通过 ESP 代发（SPF include）在这里检测不到，那属于认证维度。
+# 免费邮箱服务商（qq/163/gmail 等）不是 ESP，已由 freemail.txt + sender_from_freemail
+# 单独处理，不要混入本清单。
+# 格式：每行一个可匹配域（含其全部子域），# 为注释。
+mailchimp.com
+mcsv.net
+campaign-archive.com
+sendgrid.net
+constantcontact.com
+hubspot.com
+mailgun.org
+mailgun.net
+mandrillapp.com
+postmarkapp.com
+sendinblue.com
+brevo.com
+getresponse.com
+aweber.com
+icontact.com
+amazonses.com
+sparkpostmail.com
+klaviyo.com
+marketo.com
+exacttarget.com
+campaign-monitor.com
+createsend.com
+mailjet.com
+mailerlite.com
+sendpulse.com
+sendcloud.net

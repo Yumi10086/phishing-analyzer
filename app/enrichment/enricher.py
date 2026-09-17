@@ -78,6 +78,18 @@ class Enricher:
         for d in list(iocs.get("domains", [])) + list(iocs.get("sender_domains", [])):
             if d and d not in domain_iocs:
                 domain_iocs.append(d)
+        # **知名域跳过**（rules/dicts/trusted_domains.txt）：它们的 VT 域名记录本就是 clean，
+        # 查了没有信息量（实测真实邮箱 3047 次域查询里 46.8% 是 google.com/qq.com/outlook.com
+        # 这类）。**只跳域名端点**：URL 级查询（URLScan / VT URL）照旧——钓鱼寄居在知名平台
+        # 子域/路径上（evil.pages.dev、drive.google.com/…）时，只有 URL 级查询看得见。
+        # 跳过的域由报告标注"已知知名域（未查询）"，不静默消失。
+        from app.scoring.features import load_trusted_domains
+
+        trusted = load_trusted_domains()
+        for d in domain_iocs:
+            if d in trusted:
+                log.debug("跳过知名域的域名端点查询: %s", d)
+        domain_iocs = [d for d in domain_iocs if d not in trusted]
         for d in domain_iocs[:8]:
             tasks.append(self._query_with_cache(partial(self.vt.check_domain, d), "virustotal", d, "domain"))
 

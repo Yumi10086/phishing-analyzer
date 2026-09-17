@@ -15,3 +15,10 @@ yandex.com
 proton.me
 gmx.com
 live.com
+
+# ---- 国内免费邮箱补充（2026-09 中文适配）----
+foxmail.com
+139.com
+yeah.net
+188.com
+21cn.com

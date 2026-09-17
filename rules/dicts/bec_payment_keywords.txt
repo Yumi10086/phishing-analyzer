@@ -1,0 +1,31 @@
+# BEC / 支付类话术（商务邮件诈骗：改收款、汇款、发票、电子签名）。
+#
+# 来源与判据（2026-09）：候选池 = PwC《Business Email Compromise Guide》§9.2 的关键词表 +
+# BEC 语料（arXiv 2007.02033）的六类标签 + 中文"冒充领导/财务改收款"真实话术。
+# 每条都必须过**真实语料过滤**（脚本 scripts/_mine_vocab_filter.py）：
+#   误报侧（须 0 命中）：个人邮箱 625 封真实邮件 + Enron 2000 封企业 ham + trec06c 2000 封中文 ham
+#   召回侧（须有命中）：pot 500 / datacon day1 611 / Nazario 800（真实英文钓鱼）
+# 实测命中（pot/datacon/Nazario）：
+#   account number 1/0/5 · payment confirmation 0/0/3 · remittance advice 0/0/3
+#   purchase order 0/1/2 · direct deposit 0/0/2 · bank details 1/0/0
+#   routing number 1/0/0 · swift code 1/0/0 · wire the funds 1/0/0 · e-signature 2/0/0
+#   回款 0/1/0
+# **未过筛的候选一律没进来**：`会计`（真实中文 ham 有命中）、`iban`（邮箱 4 封）、
+# `w-2`（邮箱 213 封子串误命中，加词边界前不收）。
+#
+# ⚠️ 本文件是**行首 # 注释**格式：行尾不能写注释——那会把注释当成词条的一部分，静默匹配不上
+#   （实测踩过：11 条词条全废、规则在三语料上一次都没命中）。
+#
+# 语义提示：单条命中不代表钓鱼（正常发票、采购单也用这些词），故配套规则只给低分。
+
+account number
+bank details
+routing number
+swift code
+direct deposit
+payment confirmation
+remittance advice
+purchase order
+wire the funds
+e-signature
+回款

@@ -42,7 +42,11 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 
 
 def cmd_batch(args: argparse.Namespace) -> int:
-    from app.pipeline import analyze_file
+    import os
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+
+    from app.extractor.ioc_extractor import count_iocs
+    from app.pipeline import analyze_batch_item
 
     directory = Path(args.directory)
     files = sorted(p for p in directory.iterdir()
@@ -55,20 +59,27 @@ def cmd_batch(args: argparse.Namespace) -> int:
 
     out_path = Path(args.out)
     rows = []
-    verdict_count = {"BENIGN": 0, "SUSPICIOUS": 0, "MALICIOUS": 0}
-    for i, f in enumerate(files, 1):
-        try:
-            report = asyncio.run(analyze_file(str(f), offline=args.offline))
-            verdict_count[report["verdict"]] = verdict_count.get(report["verdict"], 0) + 1
-            rows.append({
-                "filename": f.name, "verdict": report["verdict"],
-                "score": report["score"], "iocs": count_iocs(report["iocs"]),
-                "elapsed_ms": report["processing_time_ms"],
-                "report_id": report["report_id"],
-            })
-            print(f"[{i}/{len(files)}] {f.name}: {report['verdict']} ({report['score']})")
-        except Exception as exc:  # noqa: BLE001
-            print(f"[{i}/{len(files)}] {f.name}: 解析失败 - {exc}")
+    verdict_count = {"BENIGN": 0, "SUSPICIOUS": 0, "SPAM": 0, "MALICIOUS": 0}
+    # 多进程并行：OCR 是 CPU 密集（asyncio 无益）；worker 内 save=False，
+    # 报告落盘/索引由本进程串行执行（cache.db 为 sqlite，多进程并发写会锁库）
+    workers = min(8, (os.cpu_count() or 4))
+    with ProcessPoolExecutor(max_workers=workers) as ex:
+        futures = {ex.submit(analyze_batch_item, (str(f), "", args.offline, True)): f
+                   for f in files}
+        for done, fut in enumerate(as_completed(futures), 1):
+            f = futures[fut]
+            try:
+                report = fut.result()
+                verdict_count[report["verdict"]] = verdict_count.get(report["verdict"], 0) + 1
+                rows.append({
+                    "filename": f.name, "verdict": report["verdict"],
+                    "score": report["score"], "iocs": count_iocs(report["iocs"]),
+                    "elapsed_ms": report["processing_time_ms"],
+                    "report_id": report["report_id"],
+                })
+                print(f"[{done}/{len(files)}] {f.name}: {report['verdict']} ({report['score']})")
+            except Exception as exc:  # noqa: BLE001
+                print(f"[{done}/{len(files)}] {f.name}: 解析失败 - {exc}")
 
     with out_path.open("w", newline="", encoding="utf-8-sig") as fh:
         writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))

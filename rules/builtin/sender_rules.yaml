@@ -27,6 +27,14 @@
     field: from.localpart
     operator: regex_count_gt
     values: ['\d', 4]
+    # 免费邮箱豁免：纯数字/含大量数字的本地部分是**国内免费邮箱的标准形态**
+    # （QQ 号即邮箱名，如 2893698970@qq.com；163/139 同理）。真实语料实证：本人
+    # 合法邮件的发件地址被判"数字噪声"，而钓鱼冒充品牌的场景本就由
+    # from_display_brand_spoof / body_brand_spoof 承担，不依赖这条弱信号。
+    exclude:
+      field: from.is_freemail
+      operator: exists
+      values: [true]
 
 - id: from_display_brand_spoof
   name: 显示名品牌冒充
@@ -34,13 +42,18 @@
   points: 8
   reason: "显示名冒充品牌（{value}）但发件域名为 {from.domain}"
   match:
-    field: from.display_name
-    operator: contains_any
-    values: ["@dict:brands"]
+    # 用边界判定后的 from.display_brand（"shinapple" 这类 ID 不再命中 apple）
+    field: from.display_brand
+    operator: exists
+    values: [true]
+    # 排除"发件方就是该品牌"：判据是**标签级**的 from.domain_is_brand，不是子串匹配。
+    # 原写法 `from.domain contains_any @dict:brands` 有三个实测反例（见 features.is_brand_domain）：
+    # apple.com.evil.top（品牌词塞子域）被放行、pontosliveloacumulados.com.br 冒充 Bradesco
+    # 因域名里含另一个品牌词 livelo 被放行、myapple.com 这类"名字里带 apple"的域也拿到免检。
     exclude:
-      field: from.domain
-      operator: contains_any
-      values: ["@dict:brands"]
+      field: from.domain_is_brand
+      operator: exists
+      values: [true]
 
 - id: from_display_email_mismatch
   name: 显示名内嵌假邮箱
@@ -59,6 +72,11 @@
     field: from.domain_leet
     operator: contains_any
     values: ["@dict:brands"]
+    # 这里的排除**刻意保留子串匹配**（与 from_display_brand_spoof 不同）：
+    # 本规则的 match 侧本就是"域名 leet 折叠后含品牌词"（宽松），排除侧承担着
+    # "域名只是恰好含品牌词"的过滤职责——改成标签级会让 applebees.com（真实存在的
+    # 连锁餐厅）这类正常域命中 8 分的"数字混淆仿冒"。要收紧应先改 match 侧要求
+    # 确有 leet 数字替换，那是另一轮改动，不在这里半改。
     exclude:
       field: from.domain
       operator: contains_any
@@ -70,13 +88,13 @@
   points: 6
   reason: "企业域名发信但 Reply-To 指向免费邮箱: {reply_to.domain}"
   match:
-    field: reply_to.domain
-    operator: equals_any
-    values: ["@dict:freemail"]
+    field: reply_to.is_freemail
+    operator: exists
+    values: [true]
     exclude:
-      field: from.domain
-      operator: equals_any
-      values: ["@dict:freemail"]
+      field: from.is_freemail
+      operator: exists
+      values: [true]
 
 # 免费邮箱发件：只作弱信号（2 分）。
 #
@@ -93,10 +111,13 @@
   category: sender_identity
   points: 2
   reason: "发件域名为免费邮箱: {from.domain}"
+  # 用 from.is_freemail（内部把子域折叠到可注册域）而非 from.domain equals_any：
+  # 后者对 mail.qq.com / email.163.com / mail.gmail.com 一律漏判，与 sender_esp_domain
+  # 的 `cand == e or cand.endswith("." + e)` 口径也不一致。实测三份语料 0 例，属口径统一。
   match:
-    field: from.domain
-    operator: equals_any
-    values: ["@dict:freemail"]
+    field: from.is_freemail
+    operator: exists
+    values: [true]
 
 
 - id: display_name_all_caps
@@ -123,4 +144,16 @@
   match:
     field: from.display_name
     operator: regex_count_gt
-    values: ['[|*#^~<>{}\[\]/=+]', 2]
+    # 中文垃圾显示名标配【】★◆「」等全角装饰符，与 ASCII 装饰符同权计数
+    values: ['[|*#^~<>{}\[\]/=+【】★☆◆◇「」『』▼►●■※]', 2]
+
+# 营销特征：发件域挂在已知 ESP（批量发信平台）之下（信息性，1 分）
+- id: sender_esp_domain
+  name: ESP 平台发信域
+  category: sender_identity
+  points: 1
+  reason: "发件域/回信路径域属于已知邮件发送平台: {esp_domain}"
+  match:
+    field: esp_domain
+    operator: exists
+    values: [true]

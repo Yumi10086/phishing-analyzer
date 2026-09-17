@@ -74,4 +74,10 @@
   match:
     field: url
     operator: contains_any
-    values: ["@dict:url_keywords"]
+    # 只认**凭证本体**词，不认 account/login/verify/secure/update/confirm/billing/
+    # invoice 这类通用商务词——正常账号页与营销追踪链接天然含它们（accountSummary、
+    # wp-login.php、home/verify/email、AccountRecoveryCode…）。2026-09 规则语义审查：
+    # 该规则在真实邮箱上命中率 51.4%、留一法"省误报 47 / 丢召回 1"，但按基础比率折算，
+    # 命中里只有 0.02% 是钓鱼（提升度 0.2，**与钓鱼负相关**）；收窄后邮箱命中 235→16。
+    # 字典 url_keywords.txt 保持不变：body_credentials 仍需要其中的通用词。
+    values: ["password", "wallet", "recover", "unlock", "密码", "重置"]

@@ -1,0 +1,104 @@
+# 易滥用平台（abuse-prone）：**流量很高、但不能当"可信"**的域，两处用途：
+#
+# 1. 生成可信域清单时**排除**（`scripts/update_trusted_domains.py`）：这些域在 Tranco /
+#    Cisco / Cloudflare / Majestic 的 top 榜上，但钓鱼、诈骗页面常年寄居其上（免费建站、
+#    网盘、粘贴板、短链、用户内容 CDN、在线表单）。若因为"知名"就跳过情报查询，等于对
+#    `xxx.pages.dev` / `xxx.github.io` / `drive.google.com/...` 这类链接永久失明。
+#    实测：四份榜单合并后，"易滥用平台"里有 36 个在榜（见 README_dev 记录）。
+# 2. 将来做「链接托管在易滥用平台」的弱信号时直接复用（列表本身与方向无关）。
+#
+# 判定口径：**可注册域**（与项目其它域判定一致）。`drive.google.com`/`docs.google.com`
+# 这类"大厂域名下的用户内容子域"在本口径下**无法单独列出**（它们收敛到 google.com）——
+# 这是已知缺口，写在 README_dev 里；真要精确覆盖得改成主机级匹配，等有实测需求再做。
+#
+# ---- 免费建站 / 免费托管 ----
+000webhostapp.com
+weebly.com
+wixsite.com
+github.io
+gitlab.io
+blogspot.com
+godaddysites.com
+wordpress.com
+webflow.io
+netlify.app
+vercel.app
+pages.dev
+workers.dev
+glitch.me
+repl.co
+replit.app
+herokuapp.com
+firebaseapp.com
+web.app
+surge.sh
+neocities.org
+blogger.com
+# ---- 文件共享 / 粘贴板 ----
+dropbox.com
+pastebin.com
+telegra.ph
+mediafire.com
+mega.nz
+anonfiles.com
+notion.site
+sendspace.com
+4shared.com
+# ---- 短链 / 跳转（与 shorteners.txt 同源，这里只作"不当可信"用） ----
+bit.ly
+t.co
+tinyurl.com
+goo.gl
+ow.ly
+cutt.ly
+s.id
+rb.gy
+rebrand.ly
+is.gd
+buff.ly
+t.ly
+urlz.fr
+# ---- 用户内容 CDN / 云存储 ----
+amazonaws.com
+cloudfront.net
+sharepoint.com
+onedrive.live.com
+googleusercontent.com
+storage.googleapis.com
+blob.core.windows.net
+digitaloceanspaces.com
+r2.dev
+# ---- 在线表单 / 协作（凭证收割常见宿主） ----
+forms.gle
+typeform.com
+jotform.com
+airtable.com
+zoho.com
+smartsheet.com
+# ---- 中文网盘 / 云文档 / 对象存储（实测其中多份在 Tranco top 10k 里） ----
+# 钓鱼用它们投递载荷或直接托管页面（"共享文档"式凭证收割在国内很常见），
+# 所以流量再高也不能当"可信"跳过情报查询。
+1024tera.com
+terabox.com
+kdocs.cn
+feishu.cn
+dingtalk.com
+xunlei.com
+quark.cn
+uc.cn
+wps.cn
+1drv.ms
+onenote.com
+myqcloud.com
+aliyundrive.com
+alipan.com
+123pan.com
+lanzou.com
+lanzoui.com
+weiyun.com
+# ---- 社区 / 论坛（用户可发帖，链接不可信） ----
+reddit.com
+quora.com
+medium.com
+tumblr.com
+pinterest.com

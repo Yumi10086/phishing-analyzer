@@ -6,46 +6,52 @@
   points: 10
   reason: "附件疑似双扩展名伪装: {filename}"
   match:
-    field: filename_lower
-    operator: regex_any
-    values: ['\..+\.']
-    exclude:
-      field: extension
-      operator: equals_any
-      values: [gz, bz2, tar]
+    # 判定在特征层（has_double_extension）：序列化/语义判定不适合写在 YAML 里。
+    # 原实现是正则 '\..+\.'（"文件名里有两个点"），真实语料上误报严重——QQ 附件
+    # 重命名产物 D531AA5F@ED440C33.898B3D67.jpg、中文常见命名"简历.最终版.pdf"
+    # 都会中招，而它们与伪装无关。
+    field: double_ext
+    operator: exists
+    values: [true]
 
-- id: att_macro
-  name: 宏启用文档
+# ===== 危险扩展名三级清单（2026-09 整合）=====
+# 整合原 att_executable(10) / att_macro(8) / att_iso(6)：扩展名清单外置到
+# rules/dicts/ext_{high,medium,low}_risk.txt，运维可直接增删词条；
+# 分值自基线小步调整（10/8/6 → 12/8/3），未套用外部建议的 25/15/5。
+- id: att_ext_high_risk
+  name: 高危可执行附件
+  category: attachment
+  scope: attachment
+  points: 12
+  reason: "附件为高危可执行/镜像类型（.{extension}）: {filename}"
+  match:
+    field: extension
+    operator: equals_any
+    values: ["@dict:ext_high_risk"]
+
+- id: att_ext_medium_risk
+  name: 脚本或宏文档附件
   category: attachment
   scope: attachment
   points: 8
-  reason: "附件为宏启用文档: {filename}"
+  reason: "附件为脚本/宏启用文档（.{extension}）: {filename}"
   match:
     field: extension
     operator: equals_any
-    values: [docm, xlsm, pptm, dotm, xlam]
+    values: ["@dict:ext_medium_risk"]
 
-- id: att_executable
-  name: 可执行/脚本附件
+# 压缩包本身无害（正常业务邮件常见），价值在"可藏载荷+可加密绕过网关"，
+# 故只作 3 分弱信号，等 P1 压缩包递归看内层内容再升级判定。
+- id: att_ext_low_risk
+  name: 压缩归档附件
   category: attachment
   scope: attachment
-  points: 10
-  reason: "附件为可执行/脚本文件: {filename}"
+  points: 3
+  reason: "附件为压缩/归档容器（.{extension}）: {filename}"
   match:
     field: extension
     operator: equals_any
-    values: [exe, scr, js, vbs, hta, bat, cmd, ps1, jar, lnk]
-
-- id: att_iso
-  name: 光盘镜像附件
-  category: attachment
-  scope: attachment
-  points: 6
-  reason: "附件为光盘镜像（常见恶意载荷投递方式）: {filename}"
-  match:
-    field: extension
-    operator: equals_any
-    values: [iso, img]
+    values: ["@dict:ext_low_risk"]
 
 - id: att_html
   name: HTML 附件
@@ -66,3 +72,284 @@
   detector: att_random_name
   points: 5
   reason: "附件文件名疑似随机生成（常见恶意载荷命名）: {value}"
+
+# ===== P0 附件深度分析：真实类型三重核对与文件名欺骗（2026-09）=====
+# 现有 att_executable/att_macro 等只看扩展名（"诚实的 exe" 也计分），这里补的是
+# 「扩展名/声明 MIME 与真实内容是否一致」。发现只走启发式维度，单维度不过线原则
+# 不变：内容信号最多推到 SUSPICIOUS，情报命中才 MALICIOUS 自动处置。
+
+- id: att_type_mismatch
+  name: 扩展名与真实类型不符
+  category: attachment
+  scope: attachment
+  points: 12
+  reason: "附件扩展名 .{extension} 与真实内容类型 {real_type} 不符（伪装）: {filename}"
+  match:
+    field: type_mismatch
+    operator: exists
+    values: [true]
+
+- id: att_mime_type_conflict
+  name: 声明 MIME 与真实内容冲突
+  category: attachment
+  scope: attachment
+  points: 10
+  reason: "附件声明 MIME 为 {content_type} 但真实内容为 {real_type}: {filename}"
+  match:
+    field: mime_type_conflict
+    operator: exists
+    values: [true]
+
+- id: att_generic_mime
+  name: 通用 MIME 夹带具体类型
+  category: attachment
+  scope: attachment
+  points: 3
+  reason: "附件用通用 MIME application/octet-stream 夹带 .{extension}（掩盖真实类型）: {filename}"
+  match:
+    field: generic_mime_known_ext
+    operator: exists
+    values: [true]
+
+- id: att_filename_bidi
+  name: 文件名双向控制字符
+  category: attachment
+  scope: attachment
+  points: 10
+  reason: "附件名含双向文本控制字符（RTL 反转伪装扩展名）: {filename}"
+  match:
+    field: has_bidi_control
+    operator: exists
+    values: [true]
+
+- id: att_filename_overlong
+  name: 附件名超长
+  category: attachment
+  scope: attachment
+  points: 3
+  reason: "附件名长度 {filename_length} 超长（隐藏真实扩展名）: {filename}"
+  match:
+    field: filename_length
+    operator: gt
+    values: [200]
+
+- id: att_filename_space_padding
+  name: 附件名空格填充
+  category: attachment
+  scope: attachment
+  points: 3
+  reason: "附件名含连续空格填充（{max_space_run} 个，扩展名伪装手法）: {filename}"
+  match:
+    field: max_space_run
+    operator: gt
+    values: [2]
+
+# ===== P1 压缩包递归分析（2026-09）=====
+# 结论由 app/attachment/archive.py 产出（pipeline 解析后写入 attachments[i]["archive"]）：
+# 加密标志、内层可执行/宏文档、嵌套深度、zip 炸弹防护。非归档附件无这些字段，
+# 全部按 False 兜底，不产生任何计分。
+- id: att_archive_password_in_body
+  name: 加密压缩包且正文含密码
+  category: attachment
+  scope: attachment
+  points: 12
+  reason: "加密压缩包且解压密码写在正文中（绕过网关的标准玩法）: {filename}"
+  match:
+    field: archive_password_in_body
+    operator: exists
+    values: [true]
+
+- id: att_archive_inner_executable
+  name: 压缩包内含可执行文件
+  category: attachment
+  scope: attachment
+  points: 10
+  reason: "压缩包内层含可执行/脚本文件（载荷投递）: {filename}"
+  match:
+    field: archive_has_executable
+    operator: exists
+    values: [true]
+
+- id: att_archive_encrypted
+  name: 加密压缩包
+  category: attachment
+  scope: attachment
+  points: 8
+  reason: "附件为加密压缩包（可能用于绕过网关检测）: {filename}"
+  match:
+    field: archive_encrypted
+    operator: exists
+    values: [true]
+
+- id: att_archive_inner_macro
+  name: 压缩包内含宏文档
+  category: attachment
+  scope: attachment
+  points: 6
+  reason: "压缩包内层含宏启用文档: {filename}"
+  match:
+    field: archive_has_macro
+    operator: exists
+    values: [true]
+
+- id: att_archive_nested
+  name: 嵌套压缩包
+  category: attachment
+  scope: attachment
+  points: 3
+  reason: "附件为嵌套压缩包（多层包裹规避检测）: {filename}"
+  match:
+    field: archive_nested_depth
+    operator: gt
+    values: [0]
+
+# ===== P1 Office 文档分析（2026-09）=====
+# 结论由 app/attachment/office.py 产出：远程模板与 DDE 是零依赖结构检查（任何环境
+# 都能跑），宏提取依赖 oletools 可选依赖（未安装时宏相关字段全 False，宏文档仍由
+# 扩展名档位计分），宏语义分级是纯函数。非 Office 附件无这些字段。
+- id: att_office_remote_template
+  name: Office 远程模板加载
+  category: attachment
+  scope: attachment
+  points: 12
+  reason: "Office 文档关系文件指向外部模板（远程模板注入，可拉取恶意宏）: {filename}"
+  match:
+    field: office_remote_template
+    operator: exists
+    values: [true]
+
+- id: att_office_dde
+  name: Office DDE 字段
+  category: attachment
+  scope: attachment
+  points: 10
+  reason: "Office 文档含 DDE/DDEAUTO 字段（无宏执行命令）: {filename}"
+  match:
+    field: office_dde
+    operator: exists
+    values: [true]
+
+- id: att_office_macro_download
+  name: 宏含下载执行
+  category: attachment
+  scope: attachment
+  points: 10
+  reason: "VBA 宏含下载执行特征（URLDownloadToFile/XMLHTTP 等）: {filename}"
+  match:
+    field: office_macro_download
+    operator: exists
+    values: [true]
+
+- id: att_office_macro_shell
+  name: 宏调用 Shell
+  category: attachment
+  scope: attachment
+  points: 8
+  reason: "VBA 宏调用 Shell/CreateObject（命令执行）: {filename}"
+  match:
+    field: office_macro_shell
+    operator: exists
+    values: [true]
+
+- id: att_office_macro_autoexec
+  name: 宏自动执行入口
+  category: attachment
+  scope: attachment
+  points: 8
+  reason: "VBA 宏含自动执行入口（AutoOpen/Document_Open 等）: {filename}"
+  match:
+    field: office_macro_autoexec
+    operator: exists
+    values: [true]
+
+- id: att_office_macro
+  name: 含 VBA 宏
+  category: attachment
+  scope: attachment
+  points: 8
+  reason: "Office 附件含 VBA 宏: {filename}"
+  match:
+    field: office_has_macro
+    operator: exists
+    values: [true]
+
+- id: att_office_macro_obfuscated
+  name: 宏代码混淆
+  category: attachment
+  scope: attachment
+  points: 6
+  reason: "VBA 宏含混淆特征（大量 Chr()/StrReverse/Base64）: {filename}"
+  match:
+    field: office_macro_obfuscated
+    operator: exists
+    values: [true]
+
+# ===== P2 PDF 关键字扫描（2026-09）=====
+# 只对 magic 确认为 PDF 的附件扫描（app/attachment/pdf.py），/OpenAction 不单独
+# 计分（合法的"打开跳页"在正常 PDF 里极常见，见模块注释）。
+- id: att_pdf_javascript
+  name: PDF 内嵌 JavaScript
+  category: attachment
+  scope: attachment
+  points: 10
+  reason: "PDF 含 JavaScript（漏洞利用/自动跳转常见载体）: {filename}"
+  match:
+    field: pdf_javascript
+    operator: exists
+    values: [true]
+
+- id: att_pdf_launch
+  name: PDF 启动外部程序
+  category: attachment
+  scope: attachment
+  points: 10
+  reason: "PDF 含 /Launch 动作（启动外部程序，邮件场景几乎必为恶意）: {filename}"
+  match:
+    field: pdf_launch
+    operator: exists
+    values: [true]
+
+- id: att_pdf_embedded
+  name: PDF 内嵌文件
+  category: attachment
+  scope: attachment
+  points: 6
+  reason: "PDF 含内嵌文件（可承载二次载荷）: {filename}"
+  match:
+    field: pdf_embedded
+    operator: exists
+    values: [true]
+
+# ===== 无点媒体命名（2026-09，报告 8f7a759ca71d4575）=====
+# 真实样本附件名 iU252Bjpg：主名与扩展名之间**没有点**——Windows 资源管理器不认
+# 扩展名、杀软按内容识别，而收件人看到 iU252Bjpg 会以为是图片文件。extension 解析
+# 为空导致全部扩展名档位规则落空，本规则补这个盲区。要求"无点 + 以已知媒体/
+# 文档后缀结尾 + 主名含数字混合大小写"三条件，普通 README/Makefile 类无点文件不命中。
+- id: att_name_no_ext_media
+  name: 无点媒体后缀命名
+  category: attachment
+  scope: attachment
+  points: 6
+  reason: "附件名无扩展名分隔点但以媒体/文档后缀结尾（{stem}），刻意隐藏类型: {filename}"
+  match:
+    - field: extension
+      operator: equals_any
+      values: [""]
+    - field: filename_lower
+      operator: regex_any
+      values: ['[a-z0-9]+[0-9][a-z0-9]*(jpg|jpeg|png|gif|bmp|webp|pdf|docx?|xlsx?|exe|scr)']
+
+
+# ===== P2 YARA 家族检测（2026-09 接入评分引擎）=====
+# 规则集 app/rules/phishing.yar（凭证模板/HTML 登录页/宏文档/URL 混淆），
+# 由 app/rules/loader.py 扫描附件字节；yara-python 未安装时静默降级。
+- id: att_yara_hit
+  name: YARA 规则命中
+  category: attachment
+  scope: attachment
+  points: 12
+  reason: "附件命中 YARA 规则: {yara_rules}"
+  match:
+    field: yara_hit
+    operator: exists
+    values: [true]

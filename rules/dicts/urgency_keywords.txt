@@ -1,4 +1,25 @@
-# 紧急恐吓措辞（正文/主题，子串匹配；匹配前做混淆还原）
+# 紧急恐吓措辞（正文/主题；匹配前做混淆还原）
+#
+# ⚠️ 规则 body_urgency 现在用 **regex_any** 求值：本文件每行都是**正则**。
+#    普通词直接写即可（如 `urgent`）；若要写字面量里的正则元字符（. ( ) [ ] * + ? | \），
+#    记得转义——写错了会在规则加载时直接报错（不会静默失效）。
+#    词表之外还有几条**模式**写在 rules/builtin/body_rules.yaml 里（覆盖没见过的同义说法）。
+# 2026-09 语义审查：删去纯 CTA「点击这里」——真实邮箱 127 次命中里 33 次来自它，
+# 且常出现在「点击这里取消订阅」这类退订页脚（实测去掉后邮箱误报 -3、钓鱼零代价）。
+# 「立即/尽快/马上」保留：datacon 中文钓鱼 206 封靠「立即」命中，去掉要丢 9 封召回。
+# 另删「过期」「逾期」：实测真实邮箱的命中全是**事实性有效期提示**（QQ 中转站文件到期、
+# Steam 购物车过期、论坛注册链接有效期为 3 天），无一在恐吓；去掉后三语料判定零变化。
+# 仍未动的候选：「即将过期」（营销优惠券常用，当前语料零命中，等有样本再判）。
+#
+# 2026-09 二轮补齐（用户反馈：报告 432acc4a39534098 正文写着 "FINAL ALERT" 却没命中，
+# 因为词表只有 final notice）——按"邮箱侧命中数 ≈ 0 才收"的口径逐个实测后补入：
+#   EN: final alert(10万spam 31)、final warning、final reminder、verify immediately(43)、
+#       confirm now(33)、unusual login(22)、avoid closure(44)、avoid suspension(6)、
+#       will be suspended(8)、will be terminated、immediate action、immediate attention、legal action
+#   CN: 停止服务(datacon 89!)、暂停使用(4)、法律责任(4)
+# 以上在真实邮箱 625 封上命中数**全部为 0**（零误报代价）。有意**未收**的低价值候选：
+# act now / urgent action / last warning / suspicious sign-in（四语料皆 0）、
+# 「24小时内」「48小时内」（邮箱 2/1 命中、钓鱼 0 → 只会增加误报）。
 #
 # ⚠️ 有意不收的裸词（改前必读）：
 #   important / 重要 —— 正常商务与技术邮件里极度常见（"IMPORTANT: 系统维护通知"、
@@ -25,10 +46,43 @@ irpf
 立即
 马上
 冻结
-过期
 异常
-点击这里
 sua conta
 bloqueado
 suspenso
 nao autorizado
+
+# ---- 英文同义说法（2026-09 二轮补齐；均为实测"邮箱 0 命中"）----
+final alert
+final warning
+final reminder
+verify immediately
+confirm now
+unusual login
+avoid closure
+avoid suspension
+will be suspended
+will be terminated
+immediate action
+immediate attention
+legal action
+
+# ---- 账户状态告警（2026-09 三轮补齐；来源：从 dataset_eml 挖候选 + 真实语料过滤）----
+# 判据：真实 ham（邮箱 625 / Enron 2000 / trec06c 2000）零命中；真实钓鱼有命中（括号内）
+immediate verification
+verification needed
+has been flagged
+
+# ---- 中文紧迫话术补充（2026-09 中文适配）----
+尽快
+限时
+最后机会
+最后一天
+过期作废
+即将过期
+立即处理
+请立即
+速查
+停止服务
+暂停使用
+法律责任

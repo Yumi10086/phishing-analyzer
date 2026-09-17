@@ -8,14 +8,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from app.attachment.analyzer import report_ocr_text
 from app.config import REPORTS_DIR
 from app.extractor.ioc_extractor import count_iocs
+from app.scoring.category import CATEGORY_LABELS
 from app.utils.cache import cache
 
-# HUD 状态语义色：Danger / Warning / Success
+# HUD 状态语义色：Danger / Warning / Muted / Success
 _VERDICT_COLORS = {
     "MALICIOUS": ("#EF4444", "恶意"),
     "SUSPICIOUS": ("#F97316", "可疑"),
+    "SPAM": ("#A3A3A3", "垃圾"),
     "BENIGN": ("#22C55E", "正常"),
 }
 
@@ -27,31 +30,62 @@ def new_report_id() -> str:
 def build_report(filename: str, parsed: dict[str, Any], iocs: dict[str, Any],
                  auth: dict[str, Any], scored: dict[str, Any],
                  intel_results: list[dict[str, Any]], elapsed_ms: int,
-                 offline: bool = False) -> dict[str, Any]:
+                 offline: bool = False, source: str = "") -> dict[str, Any]:
     """组装统一的 JSON 报告结构。
 
     ``offline`` 会落盘：报告此前不记录分析模式，导致事后无法区分"没查情报"与
     "查了但无有效数据"，用户也容易把旧报告当成新报告。
     """
+    # 类别标签（第一步·标签层）：营销/垃圾与钓鱼分流。不影响 verdict，
+    # 只在 reasons 里加一行汇总，保证 JSON / HTML / GUI 三处都能看到。
+    category = scored.get("category") or "unknown"
+    reasons = list(scored["reasons"])
+    if category in CATEGORY_LABELS and category != "unknown":
+        reasons.insert(1, f"类别判定: {CATEGORY_LABELS[category]}（{category}）")
+    # 头部域里命中的"已知知名域"（trusted_domains.txt）：它们的 VT 域名端点查询被跳过
+    # （查了也只有 clean），报告必须写出来——否则分析师看到"没查"会以为是漏查。
+    # 只算**身份上下文**（header_domains/sender_domains），URL 域的查询不受影响。
+    trusted_hit: list[str] = []
+    try:
+        from app.scoring.features import load_trusted_domains
+
+        _trusted = load_trusted_domains()
+        _seen: list[str] = []
+        for d in list(iocs.get("domains", [])) + list(iocs.get("sender_domains", [])):
+            if d and d not in _seen:
+                _seen.append(d)
+        trusted_hit = [d for d in _seen if d in _trusted]
+    except Exception:  # noqa: BLE001 - 报告生成不能因为字典读不到就失败
+        trusted_hit = []
+
     return {
         "report_id": new_report_id(),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "filename": filename,
+        # 来源标签（mailbox/upload/dir，空 = 未标注）：下游按来源筛选用，
+        # 老报告无此字段，读取方需兼容
+        "source": source,
         "offline": bool(offline),
         "processing_time_ms": elapsed_ms,
         "source_format": parsed.get("source_format"),
         "score": scored["score"],
         "verdict": scored["verdict"],
-        "reasons": scored["reasons"],
+        "category": category,
+        "reasons": reasons,
         "score_breakdown": scored["breakdown"],
         "signals": scored.get("signals", []),
         "auth": auth,
         "iocs": iocs,
+        # 已知知名域（域名端点未查询）：供报告/下游标注，避免"没查"被读成"漏查"
+        "trusted_domains": trusted_hit,
         "intel": intel_results,
         "headers": parsed.get("headers", {}),
         "attachments": parsed.get("attachments", []),
         "subject": parsed.get("headers", {}).get("subject", ""),
         "from": parsed.get("headers", {}).get("from", ""),
+        # 图内识别文字摘录（OCR）与二维码解码内容：分析师据此判断"图里到底藏了什么"
+        "ocr_text": report_ocr_text(parsed),
+        "qr_codes": parsed.get("qr_codes") or [],
     }
 
 
@@ -99,12 +133,28 @@ def render_html(report: dict[str, Any]) -> str:
     else:
         mode_label = "离线（未查询威胁情报）" if report["offline"] else "在线（已查询威胁情报）"
 
-    ioc_rows = ""
+    # IOC 区块分两段渲染：**身份上下文**（头部里的域，含发件方身份域）与**指标**（URL/
+    # 域名/IP/哈希）。二者性质不同——头部域是"这封信自称从哪来"，不是"邮件让你访问什么"，
+    # 混在一张表里会让分析师把 outlook.com 读成"IOC"（用户实际反馈过这一点）。
+    _IDENTITY_KINDS = ("header_domains", "sender_domains")
+    trusted = set(report.get("trusted_domains") or [])
+    ioc_rows = identity_rows = ""
     for kind, items in report.get("iocs", {}).items():
         if not items:
             continue
-        ioc_rows += (f'<tr><td class="k">{e(kind)}</td>'
-                     f'<td>{e("; ".join(map(str, items[:15])))}</td></tr>')
+        shown = "; ".join(map(str, items[:15]))
+        cell = (f'{e(shown)}　<span style="color:#64748B">（已知知名域，未查情报）</span>'
+                if kind in ("domains", "sender_domains") and any(str(x) in trusted for x in items)
+                else e(shown))
+        row = f'<tr><td class="k">{e(kind)}</td><td>{cell}</td></tr>'
+        if kind in _IDENTITY_KINDS:
+            identity_rows += row
+        else:
+            ioc_rows += row
+    if identity_rows:
+        identity_rows = ('<tr><td colspan="2" style="color:#94A3B8">'
+                         '身份上下文（来自邮件头部：这封信自称从哪来，不是"让你访问什么"）'
+                         '</td></tr>' + identity_rows)
 
     intel_rows = ""
     for item in report.get("intel", []):
@@ -201,6 +251,7 @@ def render_html(report: dict[str, Any]) -> str:
 </table>
 
 <h2>// IOC</h2><table>{ioc_rows}</table>
+<h2>// 身份上下文</h2><table>{identity_rows}</table>
 <h2>// INTEL 情报富化</h2><table>{intel_rows or _intel_empty_note(report)}</table>
 <h2>// ATTACHMENTS 附件</h2><table>{att_rows or '<tr><td>无附件</td></tr>'}</table>
 

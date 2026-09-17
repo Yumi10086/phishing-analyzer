@@ -31,3 +31,60 @@ correios
 aldi
 mastercard
 visa card
+
+# ---- 国内品牌（2026-09 中文适配补充）----
+# CJK 词条在正文子串匹配中天然免疫 base64/ASCII 噪声；拉丁词条只收 >=5 字符，
+# 避免 "qq" 这类短串在 base64 文本中随机命中导致 body_brand_spoof 误报。
+微信
+微信支付
+支付宝
+阿里巴巴
+淘宝
+天猫
+拼多多
+京东
+抖音
+快手
+腾讯
+百度
+网易
+微博
+小红书
+美团
+饿了么
+钉钉
+工商银行
+农业银行
+中国银行
+建设银行
+交通银行
+招商银行
+邮储银行
+平安银行
+中国移动
+中国联通
+中国电信
+qq.com
+# ---- 中英异名品牌的"域名形式"（带点词条）----
+# 这类品牌的显示名是中文、域名却是拼音/缩写，靠标签比对兜不住，只能把域名本身收进词典：
+# `is_brand_domain()` 对带点词条按"可注册域等于它或为其子域"判定，从而让
+# from_display_brand_spoof / body_brand_spoof 正确地把"品牌自己的域"排除掉。
+# 只收**在真实语料里实测到**的对应关系，不做推测性扩充（与 brands 其余条目同一原则）。
+#   来源：QQ 邮箱真实邮件 `招商银行 <95555ad@message.cmbchina.com>`（显示名命中"招商银行"，
+#   而域名不在词典里 → 曾被判"显示名品牌冒充"8 分）
+cmbchina.com
+wechat
+weixin
+alipay
+taobao
+tencent
+douyin
+pinduoduo
+meituan
+netease
+baidu
+
+# ---- 2026-09 补充（BEC/电子签名冒充）：Nazario 真实钓鱼 8 例冒充 DocuSign，
+#      属于品牌冒充形态，走品牌规则族（from_display_brand_spoof / body_brand_spoof），
+#      而不是塞进关键词表。加前已核：真实 ham（邮箱 625 / Enron 2000 / trec06c 2000）零命中。
+docusign

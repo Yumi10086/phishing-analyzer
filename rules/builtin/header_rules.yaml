@@ -51,3 +51,56 @@
   detector: signal_stack
   points: 12
   reason: "独立风险信号叠加（共 {value} 项）"
+
+# ===== 营销/批量发送特征（类别标签层，信息性）=====
+# 这些头部单独存在都可伪造，只作 1 分信息性信号；组合 >=2 项时由类别判定
+# （app/scoring/category.py）标记为 marketing 供分流展示，不影响三档结论。
+- id: header_list_unsubscribe
+  name: 退订头部
+  category: header
+  points: 1
+  reason: "携带 List-Unsubscribe 头（营销/批量邮件标配，可伪造）"
+  match:
+    field: has_list_unsubscribe
+    operator: exists
+    values: [true]
+
+- id: header_precedence_bulk
+  name: 批量投递标识
+  category: header
+  points: 1
+  reason: "Precedence 声明 bulk/junk/list（批量投递标识）"
+  match:
+    field: precedence_bulk
+    operator: exists
+    values: [true]
+
+# 群发垃圾软件的随机伪词 X-Mailer（如 "Axbkgg Ccerhjm 85.26"）。
+# datacon 抽样 16% 命中，modern ham/spam 各 600 封 0 命中；自研Mailer会误中但
+# 仅 4 分弱信号，不参与定性（判定逻辑见 features.is_junk_xmailer）。
+- id: xmailer_random_junk
+  name: 随机串 X-Mailer
+  category: header
+  points: 4
+  reason: "X-Mailer 为随机伪词（群发垃圾软件特征）"
+  match:
+    field: xmailer_junk
+    operator: exists
+    values: [true]
+
+# ===== 信封发件域核对（2026-09，报告 36fab11b15c6472a 归因）=====
+# Authentication-Results 的 smtp.mail（SPF 实际校验的信封发件人）与 From 域不一致
+# 且 SPF 未通过时是典型伪造特征（信封 iteview.com 发信冒充阿里云）。ESP 正规代发
+# （信封=ESP 域且 SPF pass）被 SPF 条件排除，不误伤；null sender（<>退信）不匹配。
+- id: auth_smtp_mail_mismatch
+  name: 信封发件域与 From 不一致
+  category: header
+  points: 6
+  reason: "信封发件域 {smtp_mail_domain} 与 From 域不一致且 SPF 未通过（伪造特征）"
+  match:
+    - field: smtp_mail_mismatch
+      operator: exists
+      values: [true]
+    - field: auth.spf
+      operator: equals_any
+      values: [none, fail, softfail]

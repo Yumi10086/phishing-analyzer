@@ -47,6 +47,7 @@ def dmarc_pass_without_mechanism(header: str) -> bool:
 def check_auth(parsed: dict[str, Any]) -> dict[str, Any]:
     """输出统一的认证结果视图 + 域名对齐性检查。"""
     spf = dkim = dmarc = None
+    smtp_mail_domain = None
     for header in parsed.get("authentication_results", []):
         partial = _parse_single_header(header)
         # pass 优先级最高，其次保留任意出现的明确结果
@@ -57,6 +58,14 @@ def check_auth(parsed: dict[str, Any]) -> dict[str, Any]:
                 dkim = value if dkim != "pass" else dkim
             elif method == "dmarc":
                 dmarc = value if dmarc != "pass" else dmarc
+        # 信封发件人（SPF 实际校验的对象）：smtp.mail=pcms@iteview.com / smtp.mailfrom=...
+        # 与 From 域不一致且 SPF 未通过时是典型伪造特征（报告 36fab11b15c6472a：
+        # 信封 iteview.com 发信冒充阿里云，Reply-To 指向 QQ 邮箱）
+        if smtp_mail_domain is None:
+            m = re.search(r"smtp\.mail(?:from)?\s*[=<]\s*<?\s*"
+                          r"([A-Za-z0-9._%+-]*)@([A-Za-z0-9.-]+)", header, re.IGNORECASE)
+            if m and m.group(2):
+                smtp_mail_domain = m.group(2).lower()
 
     headers = parsed.get("headers", {}) or {}
 
@@ -74,15 +83,29 @@ def check_auth(parsed: dict[str, Any]) -> dict[str, Any]:
     return_path_domain = _domain_of(headers.get("return-path"))
     reply_to_domain = _domain_of(headers.get("reply-to"))
 
-    # 对齐性：Return-Path 应与 From 一致（smpt.mailfrom 对齐）；Reply-To 与 From 不一致是典型钓鱼信号
+    # 对齐性：Return-Path 应与 From 一致（smpt.mailfrom 对齐）；Reply-To 与 From 不一致是典型钓鱼信号。
+    # **Reply-To 按可注册域比对**（DMARC/SPF 的 relaxed 对齐口径）：postmaster.bilibili.com
+    # 与 service.bilibili.com 是同一主体的两个子域，不是"Reply-To 指向别处"。实测真实邮箱
+    # 27 次命中里 24 次属此类（哔哩哔哩 postmaster@、墨墨 maimemo.com vs email.maimemo.com），
+    # 而 pot 167 次里只有 4 次同域、datacon 226 次里 0 次，收紧几乎不动召回。
+    # Return-Path 刻意**不改**：它在真实邮箱上 0 次命中（无收益），而 pot 有 17 次
+    # "同注册域不同子域"（多为 ESP 的 return-path），改判会白丢这些命中。
+    from app.scoring.features import registrable_domain
+
+    def _reply_aligned(a: str | None, b: str | None) -> bool:
+        if a is None or b is None:
+            return True
+        ra, rb = registrable_domain(a), registrable_domain(b)
+        return (ra or a) == (rb or b)
+
     alignment = {
         "from_domain": from_domain,
         "return_path_domain": return_path_domain,
         "reply_to_domain": reply_to_domain,
+        "smtp_mail_domain": smtp_mail_domain,
         "return_path_aligned": (return_path_domain is None or from_domain is None
                                 or return_path_domain == from_domain),
-        "reply_to_aligned": (reply_to_domain is None or from_domain is None
-                             or reply_to_domain == from_domain),
+        "reply_to_aligned": _reply_aligned(reply_to_domain, from_domain),
     }
     return {
         "spf": spf, "dkim": dkim, "dmarc": dmarc,

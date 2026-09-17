@@ -75,10 +75,11 @@ with st.expander(f"MAINTENANCE // 清理重置（当前 {_stats['report_files']}
 metas = cache.list_reports(limit=1000)
 
 st.sidebar.header("FILTER // 筛选")
-ALL_VERDICTS = ["MALICIOUS", "SUSPICIOUS", "BENIGN"]
+ALL_VERDICTS = ["MALICIOUS", "SUSPICIOUS", "SPAM", "BENIGN"]
 verdict_filter = st.sidebar.multiselect("VERDICT", ALL_VERDICTS, default=ALL_VERDICTS,
                                         format_func=lambda v: {"MALICIOUS": "恶意",
                                                                "SUSPICIOUS": "可疑",
+                                                               "SPAM": "垃圾",
                                                                "BENIGN": "正常"}.get(v, v))
 search = st.sidebar.text_input("FILENAME // 文件名搜索").lower().strip()
 
@@ -100,16 +101,18 @@ if not filtered:
 # ---------------- KPI ----------------
 total = len(filtered)
 vc = Counter(m["verdict"] for m in filtered)
-mal, susp, ben = vc.get("MALICIOUS", 0), vc.get("SUSPICIOUS", 0), vc.get("BENIGN", 0)
+mal, susp, spam, ben = (vc.get("MALICIOUS", 0), vc.get("SUSPICIOUS", 0),
+                        vc.get("SPAM", 0), vc.get("BENIGN", 0))
 scores = [m["score"] for m in filtered]
 avg_score = sum(scores) / total
 
-c1, c2, c3, c4, c5 = st.columns(5)
+c1, c2, c3, c4, c5, c6 = st.columns(6)
 c1.metric("SCANNED / 已分析", total, border=True)
 c2.metric(f"MALICIOUS 恶意 · {mal / total * 100:.0f}%", mal, border=True)
 c3.metric(f"SUSPICIOUS 可疑 · {susp / total * 100:.0f}%", susp, border=True)
-c4.metric(f"BENIGN 正常 · {ben / total * 100:.0f}%", ben, border=True)
-c5.metric("AVG SCORE 平均分", f"{avg_score:.0f}", border=True)
+c4.metric(f"SPAM 垃圾 · {spam / total * 100:.0f}%", spam, border=True)
+c5.metric(f"BENIGN 正常 · {ben / total * 100:.0f}%", ben, border=True)
+c6.metric("AVG SCORE 平均分", f"{avg_score:.0f}", border=True)
 
 # ---------------- 加载报告明细（用于信号/IOC 聚合，上限 300 份控制读取量） ----------------
 report_jsons: list[dict] = []
@@ -127,7 +130,8 @@ left, mid, right = st.columns(3)
 
 with left:
     st.caption("VERDICT // 结论分布")
-    verdict_df = pd.DataFrame({"数量": [mal, susp, ben]}, index=["恶意", "可疑", "正常"])
+    verdict_df = pd.DataFrame({"数量": [mal, susp, spam, ben]},
+                              index=["恶意", "可疑", "垃圾", "正常"])
     st.bar_chart(verdict_df, color="#06B6D4")
 
 with mid:
@@ -203,7 +207,7 @@ df = pd.DataFrame([{
     "报告ID": m["report_id"], "文件": m["filename"], "结论": m["verdict"],
     "评分": m["score"], "IOC数": m["ioc_count"], "时间": m["created_at"][:19],
 } for m in filtered])
-_verdict_color = {"MALICIOUS": "#ef4444", "SUSPICIOUS": "#f97316", "BENIGN": "#22c55e"}
+_verdict_color = {"MALICIOUS": "#ef4444", "SUSPICIOUS": "#f97316", "SPAM": "#a3a3a3", "BENIGN": "#22c55e"}
 
 
 def _color(val):

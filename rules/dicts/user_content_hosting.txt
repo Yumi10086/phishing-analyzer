@@ -1,0 +1,73 @@
+# 用户内容托管平台（**任何人都能在此发布内容**）：钓鱼站常见宿主。
+#
+# 与 abuse_prone_platforms.txt 的关系：
+#   - 那份是**超集**，用于"生成可信域清单时排除"（短链、社区论坛、SaaS 客户子域也在内）；
+#   - 本份是**规则专用子集**，只收"第三方可自由发布页面/文件"的平台——点击目标落在它们的
+#     **子域/桶**上（`protonmail-6e3725.webflow.io`、`xxx.cdn.digitaloceanspaces.com`、
+#     `project.firebaseapp.com`）时，才构成"链接托管在他人可自由创建的站点"这一信号。
+#   刻意**不含** typeform/airtable/zendesk 这类"SaaS 的客户子域"（`ollama.typeform.com`
+#   是正常厂商表单），也不含短链（另有 url_shortener 规则）与社区论坛（正常邮件也常贴）。
+#
+# 实测（三语料，按引擎口径 = 可点击目标 + 非 apex 主机 + 与发件域无关）：
+#   邮箱 625 封正常 0.8%（5 封，全是 SaaS 子域）；pot 500 封钓鱼 2.6%（13 封）；
+#   datacon 611 封 0.0%。其中 5 封 pot 钓鱼当前判定为 BENIGN（heuristic 6~13）——
+#   本规则正是补这一段召回。
+#
+# ---- 免费建站 / 静态托管 ----
+webflow.io
+github.io
+gitlab.io
+pages.dev
+workers.dev
+web.app
+firebaseapp.com
+netlify.app
+vercel.app
+surge.sh
+glitch.me
+repl.co
+replit.app
+herokuapp.com
+neocities.org
+000webhostapp.com
+wixsite.com
+weebly.com
+godaddysites.com
+wordpress.com
+blogspot.com
+blogger.com
+medium.com
+notion.site
+telegra.ph
+# ---- 对象存储 / 用户内容 CDN（桶名常在子域） ----
+s3.amazonaws.com
+amazonaws.com
+digitaloceanspaces.com
+cloudfront.net
+storage.googleapis.com
+googleusercontent.com
+blob.core.windows.net
+r2.dev
+myqcloud.com
+aliyuncs.com
+cos.ap-guangzhou.myqcloud.com
+oss-cn-hangzhou.aliyuncs.com
+# ---- 网盘 / 文件共享（载荷投递） ----
+dropbox.com
+mediafire.com
+mega.nz
+4shared.com
+sendspace.com
+anonfiles.com
+1024tera.com
+terabox.com
+lanzou.com
+lanzoui.com
+123pan.com
+weiyun.com
+aliyundrive.com
+alipan.com
+kdocs.cn
+1drv.ms
+# ---- 粘贴板 ----
+pastebin.com

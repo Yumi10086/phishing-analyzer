@@ -8,7 +8,8 @@ ml
 ga
 cf
 gq
-cn
+# cn —— 2026-09 移除：中国 ccTLD，中文正常邮件大量使用（trec06c ham 误报 129 次），
+# 中文场景下 .cn 链接不构成可疑信号
 ru
 click
 link

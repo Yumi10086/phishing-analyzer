@@ -136,6 +136,27 @@ def _has_usable_host(url: str) -> bool:
         return False
 
 
+# 结构性 URL（XML 命名空间 / DTD / Open Graph / schema.org 元数据）：它们出现在**每一个**
+# 正常 HTML 邮件的骨架里，不是"邮件让收件人访问的地址"。此前会进 IOC 列表、被送去查威胁
+# 情报（白耗配额），也让分析师在报告里看到 `www.w3.org` 这种"这是哪门子 IOC"的条目。
+# 判定按**主机名**后缀比对（不用可注册域：ns.adobe.com 的可注册域是 adobe.com，按注册域
+# 会连带把邮件里真实的 adobe.com 链接一起滤掉）。清单与 scoring 侧 link_allowlist 中的
+# 同名条目保持一致。
+_STRUCTURAL_HOSTS = frozenset({
+    "w3.org", "w3c.org", "ogp.me", "schema.org", "purl.org",
+    "openxmlformats.org", "ns.adobe.com", "xmlsoap.org", "xmlns.com",
+})
+
+
+def _is_structural_url(url: str) -> bool:
+    """是否结构性/元数据 URL（见 _STRUCTURAL_HOSTS）。"""
+    m = re.match(r"^[a-z]+://([^/:?#]+)", url, re.IGNORECASE)
+    if not m:
+        return False
+    host = m.group(1).strip("[]").strip(".").lower()
+    return any(host == h or host.endswith("." + h) for h in _STRUCTURAL_HOSTS)
+
+
 def _extract_urls(parsed: dict[str, Any]) -> list[str]:
     """从正文、HTML、头部提取 URL 并去重还原。"""
     candidates: list[str] = []
@@ -169,6 +190,8 @@ def _extract_urls(parsed: dict[str, Any]) -> list[str]:
     for u in candidates:
         u = u.rstrip("/")
         if not u or u.lower() in seen or not _has_usable_host(u):
+            continue
+        if _is_structural_url(u):
             continue
         seen.add(u.lower())
         urls.append(u)

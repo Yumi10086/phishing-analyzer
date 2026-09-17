@@ -32,3 +32,21 @@
     field: link_domain_mismatch
     operator: exists
     values: [true]
+
+# 用户内容托管平台上的点击目标（2026-09）。与 link_domain_mismatch 的分工：
+# 后者是"链接域与发件域无关"（4 分，弱），本规则进一步指出**这个域是任何人都能发布内容的
+# 免费建站/对象存储/网盘**（子域或桶名）——正常公司的点击目标极少落在"陌生人可自由创建的
+# 站点"上。实测三语料：邮箱 625 封正常 0.8%、pot 500 封钓鱼 2.6%、datacon 0%；其中 5 封
+# pot 钓鱼当前判 BENIGN（heuristic 6~13），正是本规则要补的那段召回。
+# 刻意不含 SaaS 客户子域（`ollama.typeform.com` 是正常厂商表单）、短链（另有 url_shortener）
+# 与社区论坛；`<img src>` 等资源引用不算（CDN 上的图片是正常形态）。
+- id: link_user_content_hosting
+  name: 链接托管在用户内容平台
+  category: link
+  scope: mail
+  points: 6
+  reason: "点击目标托管在用户内容平台（任何人都能发布内容）: {value}"
+  match:
+    field: user_content_link
+    operator: exists
+    values: [true]

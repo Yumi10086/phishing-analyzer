@@ -1,0 +1,18 @@
+# 高危附件扩展名：可直接执行或承载载荷的投递形态（三级清单·高）
+# 依据：executable/disk-image 直接运行代码，是钓鱼投递链条的终点形态；
+# 整合自原 att_executable（exe/scr/hta/lnk）+ att_iso（iso/img），分值 10/6 → 12。
+# 匹配方式：equals_any（扩展名精确匹配，不含点）
+exe
+scr
+com
+pif
+dll
+cpl
+sys
+ocx
+hta
+lnk
+iso
+img
+vhd
+msi

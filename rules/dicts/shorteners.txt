@@ -12,3 +12,9 @@ shorturl.at
 rb.gy
 t.ly
 s.id
+
+# ---- 中文生态短链（2026-09 中文适配补充）----
+t.cn
+url.cn
+dwz.cn
+suo.im

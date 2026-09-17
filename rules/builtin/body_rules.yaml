@@ -23,9 +23,20 @@
   points: 5
   reason: "正文/主题包含紧急恐吓措辞（命中: {value}）"
   match:
+    # **regex_any**：词表（@dict:urgency_keywords）之外还能表达"同义说法族"，覆盖没见过的
+    # 措辞——固定词表总要漏（实测：报告 432acc4a39534098 正文写着 "FINAL ALERT: Your account
+    # will be closed in 24 hours." 却没命中，因为词表里只有 "final notice"）。
+    # 三条模式在真实邮箱 625 封上命中数均为 0（pot 8/66/4、10万 spam 60/64/31）：
+    #   1. final/last + 名词   —— "final call""last notice" 这类没进词表的写法
+    #   2. 未授权/异常 + 活动   —— "unusual signin activity""suspicious device" 等变体（pot 66）
+    #   3. 账户 + 将被关闭/停用 —— "your account will be closed/suspended"（spam 31）
     field: text
-    operator: contains_any
-    values: ["@dict:urgency_keywords"]
+    operator: regex_any
+    values:
+      - "@dict:urgency_keywords"
+      - '\b(?:final|last)\s+(?:alert|warning|notice|reminder|chance|call)\b'
+      - '\b(?:unauthorized|unusual|suspicious)\s+(?:activity|access|login|sign[-\s]?in|device|transaction)\b'
+      - '\b(?:account|wallet|card|profile|service|subscription)\b[^.\n]{0,40}\b(?:will be|has been|is|are)\s+(?:closed|suspended|terminated|deactivated|limited|locked|blocked)\b'
 
 # 排除高精度 credential_keywords 命中的情况：同一句话不应被两条规则重复计分
 # （credential_keywords 命中时由 body_credential_solicitation 计分）。
@@ -35,20 +46,27 @@
   points: 7
   reason: "正文包含凭证索取关键词且含链接（命中: {value}）"
   match:
-    - field: body
+    # 匹配面用可见文本（body 含 HTML 与 URL，图片名/URL 路径会假命中，见 body_otp 注释）
+    - field: visible_text
       operator: contains_any
       values: ["@dict:url_keywords"]
       exclude:
-        field: body
+        field: visible_text
         operator: contains_any
         values: ["@dict:credential_keywords"]
     - field: url_count
       operator: gt
       values: [0]
       exclude:
-        field: body
+        field: visible_text
         operator: contains_any
         values: ["@dict:credential_keywords"]
+    # 通知式验证码投递豁免：给出码值 + 有效期/防泄露条款的邮件是在**告知**验证码，
+    # 不是在索取凭证（实测合法 OTP 通知在"账户/验证/登录"这些日常词上集体误报）。
+    # 只提"验证码/账户"却无码值无条款的，仍按凭证索取计分。
+    - field: otp_notice
+      operator: exists
+      values: [false]
 
 # 与 body_credentials 的分工：后者匹配 url_keywords（含 account/update/confirm 等
 # 通用商务词，落在正文上精度较低），本规则改用高精度 credential_keywords，只认
@@ -62,12 +80,35 @@
   points: 7
   reason: "正文索取凭证/个人信息并附链接（命中: {value}）"
   match:
-    - field: body
+    # 匹配面用 visible_text，与三条姊妹规则（body_credentials / body_credentials_no_link
+    # / body_otp）口径一致。此前用原始 `body`（含 HTML 与 URL 路径）实测真实邮箱 44 次
+    # 命中里含图片名/URL 路径假命中；且缺 otp_notice 豁免——合法验证码通知写"请勿泄露
+    # 密码"就被按"索取凭证"计分。2026-09 规则语义审查统一（邮箱误报 −29 封，
+    # pot/datacon 召回各 −0/−1 封，见 README_dev）。
+    - field: visible_text
       operator: contains_any
       values: ["@dict:credential_keywords"]
     - field: url_count
       operator: gt
       values: [0]
+    # 通知式验证码投递豁免（与 body_credentials / body_otp 同款）：给出码值 + 有效期/
+    # 防泄露条款的是**告知**，不是索取。缺这条时，"请勿泄露密码"类合法通知被计分。
+    - field: otp_notice
+      operator: exists
+      values: [false]
+
+# BEC / 支付类话术（2026-09）。语义：**钱怎么走**——改收款账号、汇款、发票、电子签名，
+# 与凭证/奖励/补贴那几族不重叠。单条命中不代表钓鱼（正常发票采购单也用这些词），故只给低分；
+# 词表每条都过了真实语料过滤（真实 ham 零命中 + 真实钓鱼有命中），见 bec_payment_keywords.txt。
+- id: body_bec_payment
+  name: BEC 支付类话术
+  category: body
+  points: 4
+  reason: "正文含 BEC/支付类话术（命中: {value}）"
+  match:
+    field: text
+    operator: contains_any
+    values: ["@dict:bec_payment_keywords"]
 
 # ---- HTML 隐藏文字（hidden text salting）----
 # Cisco Talos：2024 下半年起该类手法激增，且隐藏内容在恶意邮件里出现的频率远高于正常邮件；
@@ -111,9 +152,18 @@
   points: 5
   reason: "正文包含验证码话术（命中: {value}）"
   match:
-    field: body
+    # 匹配面用可见文本而非 body：body 含原始 HTML，`secure_2x.jpg` 这类图片文件名、
+    # `accountsummary?...` 这类 URL 路径会让"凭证/验证码关键词"在毫无话术的邮件上命中
+    # （QQ 邮箱真实邮件实测 3/26 例）。可见文本 = 去标签/去 style-script/去隐藏元素后的正文。
+    field: visible_text
     operator: contains_any
     values: ["@dict:otp_keywords"]
+    # 通知式验证码投递（给出码值 + 有效期/防泄露条款）不是"验证码话术诱饵"：
+    # 合法 OTP 通知天然含"验证码"，实测在哔哩哔哩/vivo/百度/量子ACG 等真实通知上误报。
+    exclude:
+      field: otp_notice
+      operator: exists
+      values: [true]
 
 # 奖励/中奖诱饵：与"凭证索取"（body_credentials）互补的另一种钓鱼话术。
 # 奖品词表原先只作用于主题（subject_keywords），主题走"快递/账单"路线而正文
@@ -196,9 +246,23 @@
   points: 8
   reason: "正文冒充品牌（{value}）但链接指向其他域名"
   match:
-    - field: text
-      operator: contains_any
-      values: ["@dict:brands"]
+    # 用 text_brand_hits 而非 visible_text 直配字典：品牌提及已在特征层做边界判定。
+    # visible_text 走 contains_any 子串匹配时，真实中文语料里 "shinapple"（发信人 ID）
+    # 会命中 apple、"北京东四十条"（北京地址）会命中 京东，直接制造"正文冒充品牌"
+    # 假信号。该字段仍基于可见文本（不含 HTML 源码），CSS font-family 'Microsoft
+    # YaHei' 误报已在特征层剔除——trec06c 与校院样本双重实证。
+    - field: text_brand_hits
+      operator: exists
+      values: [true]
+      # 排除"发件方就是该品牌"：Apple 官方收据来自 insideapple.apple.com，正文写 Apple
+      # 不是冒充；此前缺这条排除（from_display_brand_spoof 早就有），实测个人邮箱里
+      # Apple/iCloud/pixiv/Oray/腾讯视频 等官方通知集体误报 8 分。
+      # 用**可注册域**判定：apple.com.evil.top 的 registrable 是 evil.top，不含品牌词，
+      # 因此"品牌词塞进子域"的仿冒形态不会被这条排除放行。
+      exclude:
+        field: from.domain_reg
+        operator: contains_any
+        values: ["@dict:brands"]
     - field: brandless_domain_count
       operator: gt
       values: [0]
@@ -295,10 +359,13 @@
 
 # ---- 企业礼品营销群发：礼品 + 采购语境双命中，弱信号 ----
 # "我是陈晓飞，是专门为企业提供礼品的" / "三八妇女节的礼品，准备好了吗？"
+# 分值 3→5（datacon 7 天实测）：礼品营销簇 231 封中 139 封停在 27 分（gift 3 +
+# unsub_link 1 + display_mismatch 8），5 分使其越过 SUSPICIOUS 门槛进入 SPAM 降档
+# 通道；裸命中 5 分对正常采购邮件仍远低于定性线。
 - id: body_gift_marketing
   name: 正文礼品营销话术
   category: body
-  points: 3
+  points: 5
   reason: "正文包含礼品采购营销话术（命中: {value}）"
   match:
     - field: body
@@ -338,3 +405,96 @@
     operator: regex_count_gt
     case_sensitive: true
     values: ['[\u4e00-\u9fff][\s｜|〉》<〈《·•][\u4e00-\u9fff]', 1]
+
+# 营销特征：正文退订链接/退订说明（信息性，1 分）
+- id: body_unsubscribe_link
+  name: 正文退订链接
+  category: body
+  points: 1
+  reason: "正文含退订链接/退订说明（营销邮件标配，可伪造）"
+  match:
+    field: has_unsubscribe_link
+    operator: exists
+    values: [true]
+
+# datacon 7 天语料补充（第二轮，2026-09）
+# ---- 主题图片/附件诱饵：补贴诈骗把"查收"动作塞进主题本身 ----
+# "2023年个人劳动（补贴）通知，查看下图查收" / "第一季度劳动补贴领取(查看附件)"
+# 正常邮件极少在主题里写"查看下图查收"这种投递指令。
+- id: subject_image_bait
+  name: 主题图片/附件诱饵话术
+  category: body
+  points: 5
+  reason: "主题含图片/附件投递诱饵指令（命中: {value}）"
+  match:
+    field: subject
+    operator: regex_any
+    values: ['(下图|图片|附件|压缩包)[^
+]{0,12}(查收|领取|申请|下载)|(查收|领取|申请|下载)[^
+]{0,12}(下图|图片|附件|压缩包)']
+
+# ---- 货代/发票群发：主题含行业词且带 7 位以上数字串（电话/QQ 号直书）----
+# "出口报关l78l8858453张" / "通告：19110860052"
+- id: subject_freight_spam
+  name: 主题货代/开票群发话术
+  category: body
+  points: 6
+  reason: "主题含货代/开票话术并直书号码（命中: {value}）"
+  match:
+    - field: subject
+      operator: regex_any
+      values: ['(报关|清关|货代|海运|空运|拼箱|国际物流|代开|开票)']
+    - field: subject
+      operator: regex_any
+      case_sensitive: true
+      values: ['\d{7,}']
+
+# ===== 纯图正文（2026-09，报告 8f7a759ca71d4575 漏判归因）=====
+# 真实样本：主题《财 政》补〉贴 + 正文 html 仅 490 字节 + 唯一内容是 53KB 的 GIF 图
+# ——补贴金额与领取入口全在图内，正文无链接可提取。现有 image_heavy_body 要求
+# url_count>0，恰好漏掉"图内藏链接"这一最规避形态，本规则补其盲区。
+# 8 分依据：图附件作为文件投递（而非内嵌签名图）+ 全文无文字，是高成本规避行为；
+# 但与主题诱饵组合（12+8+4=24）仍不过线——纯静态规则对"图内内容"无解，
+# 定性依赖在线情报（图片哈希查 VT）或 OCR（Roadmap 候选），这是设计边界。
+- id: image_only_body
+  name: 纯图正文无文本
+  category: body
+  points: 8
+  reason: "正文无任何文字、仅由 {image_count} 张图片承载内容且无链接（图像化规避）"
+  match:
+    - field: image_only_attachments
+      operator: exists
+      values: [true]
+    - field: body_text_length
+      operator: lt
+      values: [100]
+    - field: url_count
+      operator: equals_any
+      values: [0]
+
+# ===== 群发工具指纹（2026-09，报告 36fab11b15c6472a 归因）=====
+# 真实样本 HTML 残留 file:///C:/Users/Administrator/Desktop/超级邮件群发机13.2正式版
+# +注册机/ 路径——群发工具在本地拼装 HTML 时把资源引用留在原地，是批量伪造的
+# "铁证"级指纹。两档：file:/// 泛匹配（转存网页也会出现，弱信号）；
+# file URI 内含群发关键字（高精度，入钓鱼强信号集）。
+- id: html_file_uri
+  name: HTML 含本地文件引用
+  category: body
+  points: 6
+  reason: "正文 HTML 含 file:/// 本地路径引用（群发工具/转存页面痕迹）"
+  match:
+    field: html_file_uri
+    operator: exists
+    values: [true]
+
+- id: html_massmailer_fingerprint
+  name: 群发工具安装路径指纹
+  category: body
+  scope: mail
+  points: 10
+  kind: declarative
+  reason: "正文 HTML 的本地路径含群发工具特征（file:/// + 群发）: {value}"
+  match:
+    field: body
+    operator: regex_any
+    values: ['file:///[^\s"''<>]{0,160}(?:群发|群郵|massmail|bulkmail|mailsend(?:er)?)']
