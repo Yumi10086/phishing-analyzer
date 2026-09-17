@@ -33,8 +33,16 @@ desktop.ini
 架构图/*visual-check*
 架构图/.archify-delivery-*/
 
-# ===== 个人待办（不入库）=====
+# ===== 开发文档与个人待办（不入库）=====
+# README_dev.md 是开发日志（迭代史、基线语料约定、被否决的方案、Roadmap 迭代记录等），
+# 面向维护者而非使用者；公开仓库只保留面向使用者的 README.md
+README_dev.md
 代办清单*.md
+
+# ===== 开发期临时分析脚本（会话内的 A/B 探针、基准、一次性归因工具）=====
+# 形如 scripts/_ab_*.py / _probe_*.py / _bench_*.py：依赖被忽略的本地语料，不属于
+# 文档化的工具链（README 只承诺 scripts/eval_*.py 等评估脚本）
+scripts/_*.py
 
 # ===== 测试集 =====
 tests/
